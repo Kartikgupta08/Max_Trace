@@ -1,0 +1,128 @@
+/**
+ * variables.css — Design System Tokens
+ * 
+ * Industrial-grade design system for battery manufacturing MES.
+ * All spacing follows 8px grid. Typography uses a professional scale.
+ * Color palette is enterprise-neutral with strong status indicators.
+ */
+
+:root {
+    /* ─── Color Palette ─────────────────────────────────────────── */
+
+    /* Primary — Deep industrial blue */
+    --color-primary: #1B3A5C;
+    --color-primary-light: #2A5280;
+    --color-primary-dark: #0F2540;
+    --color-primary-surface: #E8EEF4;
+
+    /* Neutral — Structured greys */
+    --color-bg-body: #F2F4F7;
+    --color-bg-card: #FFFFFF;
+    --color-bg-sidebar: #1A1F2E;
+    --color-bg-sidebar-hover: #252B3D;
+    --color-bg-sidebar-active: #2E3650;
+    --color-bg-header: #FFFFFF;
+    --color-bg-input: #FFFFFF;
+    --color-bg-table-header: #F7F8FA;
+    --color-bg-table-row-hover: #F0F2F6;
+    --color-bg-table-stripe: #FAFBFC;
+
+    /* Text */
+    --color-text-primary: #1A1D26;
+    --color-text-secondary: #5A6178;
+    --color-text-tertiary: #8B90A0;
+    --color-text-inverse: #FFFFFF;
+    --color-text-sidebar: #B0B8CC;
+    --color-text-sidebar-active: #FFFFFF;
+
+    /* Borders */
+    --color-border: #E0E3EB;
+    --color-border-light: #EBEDF2;
+    --color-border-focus: #1B3A5C;
+    --color-border-input: #D0D4DE;
+
+    /* Status — High-contrast industrial indicators */
+    --color-success: #0F8A4F;
+    --color-success-bg: #E6F5ED;
+    --color-success-border: #B3DFC8;
+
+    --color-warning: #B8860B;
+    --color-warning-bg: #FFF8E1;
+    --color-warning-border: #F0D78C;
+
+    --color-error: #C62828;
+    --color-error-bg: #FDECEA;
+    --color-error-border: #F0B0AD;
+
+    --color-info: #1565C0;
+    --color-info-bg: #E3F0FC;
+    --color-info-border: #90C2F9;
+
+    --color-inactive: #9E9E9E;
+    --color-inactive-bg: #F5F5F5;
+
+    --color-blocked: #6A1B9A;
+    --color-blocked-bg: #F3E5F5;
+    --color-blocked-border: #CE93D8;
+
+    /* ─── Typography ────────────────────────────────────────────── */
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+    /* Type scale (Major Third — 1.250) */
+    --text-xs: 0.64rem;      /* 10.24px */
+    --text-sm: 0.8rem;       /* 12.8px */
+    --text-base: 1rem;       /* 16px */
+    --text-md: 1.125rem;     /* 18px */
+    --text-lg: 1.25rem;      /* 20px */
+    --text-xl: 1.563rem;     /* 25px */
+    --text-2xl: 1.953rem;    /* 31.25px */
+    --text-3xl: 2.441rem;    /* 39px */
+
+    /* Font weights */
+    --weight-regular: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+
+    /* Line heights */
+    --leading-tight: 1.25;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.625;
+
+    /* ─── Spacing (8px Grid) ────────────────────────────────────── */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-20: 80px;
+
+    /* ─── Layout ────────────────────────────────────────────────── */
+    --sidebar-width: 260px;
+    --sidebar-collapsed: 64px;
+    --header-height: 64px;
+    --content-max-width: 1400px;
+    --content-padding: var(--space-8);
+
+    /* ─── Border Radius ─────────────────────────────────────────── */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+
+    /* ─── Shadows (Subtle, controlled) ──────────────────────────── */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.04);
+
+    /* ─── Transitions ───────────────────────────────────────────── */
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+}
