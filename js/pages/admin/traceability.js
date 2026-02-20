@@ -22,28 +22,41 @@ const Traceability = {
                     <p class="page-header__subtitle">Full manufacturing history and component trace for every battery pack</p>
                 </div>
 
-                <!-- Search / Filter -->
+                <div class="trace-hint" style="margin:8px 0 18px 0;color:var(--color-text-secondary);font-size:14px;">
+                    Trace battery by Battery_ID or by date.
+                </div>
+
+                <!-- Search / Filter (Battery ID + Date) -->
                 <div class="filter-bar">
                     <div class="filter-bar__group">
                         <label class="filter-bar__label">Battery ID</label>
-                        <input type="text" id="trace-search" class="filter-bar__input" placeholder="Enter Battery ID..." style="width:240px;" autofocus>
+                        <input type="text" id="trace-battery-id" class="filter-bar__input" placeholder="Enter Battery ID">
+                    </div>
+                    <div class="filter-bar__group">
+                        <label class="filter-bar__label">Date From</label>
+                        <input type="date" id="trace-date-from" class="filter-bar__input">
+                    </div>
+                    <div class="filter-bar__group">
+                        <label class="filter-bar__label">To</label>
+                        <input type="date" id="trace-date-to" class="filter-bar__input">
                     </div>
                     <div class="filter-bar__group">
                         <label class="filter-bar__label">Status</label>
-                        <select id="trace-status-filter" class="filter-bar__select">
-                            <option value="">All</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="IN_PROGRESS">In Progress</option>
-                            <option value="FAILED">Failed</option>
-                            <option value="DISPATCHED">Dispatched</option>
+                        <select id="trace-status-filter" class="filter-bar__input form-select">
+                            <option value="">All Statuses</option>
+                            <option value="registered">Registered</option>
+                            <option value="testing">Testing</option>
+                            <option value="tested">Tested</option>
+                            <option value="pdi">PDI</option>
+                            <option value="dispatched">Dispatched</option>
+                            <option value="failed">Failed</option>
                         </select>
-                    </div>
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">Date</label>
-                        <input type="date" id="trace-date-filter" class="filter-bar__input">
                     </div>
                     <button id="btn-trace-search" class="btn btn--primary">Search</button>
                 </div>
+
+                <!-- Stats area -->
+                <div id="trace-stats" style="margin-top:6px;margin-bottom:10px;"></div>
 
                 <!-- Results Table -->
                 <div id="trace-results">
@@ -62,39 +75,508 @@ const Traceability = {
     },
 
     init() {
-        const searchInput = document.getElementById('trace-search');
         const searchBtn = document.getElementById('btn-trace-search');
+        const batteryInput = document.getElementById('trace-battery-id');
+        const statusInput = document.getElementById('trace-status-filter');
         let currentPage = 1;
 
         searchBtn.addEventListener('click', () => {
             currentPage = 1;
             _fetchTraceData(currentPage);
         });
+        
 
-        searchInput.addEventListener('keydown', (e) => {
+        // Allow Enter key to trigger search when typing battery id
+        batteryInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 currentPage = 1;
                 _fetchTraceData(currentPage);
             }
         });
 
+        // Create a modern custom dropdown that mirrors the native select
+        if (statusInput) createModernDropdown(statusInput);
+
+        function createModernDropdown(nativeSelect) {
+            // hide the native select but keep it for form integration
+            nativeSelect.classList.add('modern-dropdown-hidden-native');
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'modern-dropdown';
+            wrapper.setAttribute('role', 'combobox');
+            wrapper.setAttribute('aria-expanded', 'false');
+
+            const trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'modern-dropdown__trigger';
+            trigger.setAttribute('aria-haspopup', 'listbox');
+
+            const label = document.createElement('span');
+            label.className = 'modern-dropdown__label';
+            const selectedOption = nativeSelect.options[nativeSelect.selectedIndex];
+            label.textContent = selectedOption ? selectedOption.text : 'All Statuses';
+
+            const arrow = document.createElement('span');
+            arrow.className = 'modern-dropdown__arrow';
+            arrow.innerHTML = '<svg width="16" height="10" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 3.5L10 11L18 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+            trigger.appendChild(label);
+            trigger.appendChild(arrow);
+
+            const panel = document.createElement('div');
+            panel.className = 'modern-dropdown__panel';
+            panel.setAttribute('role', 'listbox');
+            panel.setAttribute('tabindex', '-1');
+
+            const list = document.createElement('div');
+            list.className = 'modern-dropdown__list';
+
+            const options = Array.from(nativeSelect.options).map((opt, idx) => {
+                const o = document.createElement('div');
+                o.className = 'modern-dropdown__option' + (opt.disabled ? ' disabled' : '');
+                if (opt.selected) o.classList.add('selected');
+                o.setAttribute('data-value', opt.value);
+                o.setAttribute('data-index', String(idx));
+                o.setAttribute('role', 'option');
+                o.textContent = opt.text;
+                list.appendChild(o);
+                return o;
+            });
+
+            panel.appendChild(list);
+            wrapper.appendChild(trigger);
+            // insert wrapper (trigger) next to native select; panel will be appended to body
+            nativeSelect.parentNode.insertBefore(wrapper, nativeSelect.nextSibling);
+            document.body.appendChild(panel);
+
+            let open = false;
+            let activeIndex = nativeSelect.selectedIndex >= 0 ? nativeSelect.selectedIndex : 0;
+
+            function positionPanel() {
+                const rect = trigger.getBoundingClientRect();
+                const top = rect.bottom + window.scrollY + 8;
+                const left = rect.left + window.scrollX;
+                panel.style.position = 'absolute';
+                panel.style.top = `${top}px`;
+                panel.style.left = `${left}px`;
+                panel.style.minWidth = `${rect.width}px`;
+                panel.style.zIndex = 2000;
+            }
+
+            function openPanel() {
+                wrapper.classList.add('open');
+                wrapper.setAttribute('aria-expanded', 'true');
+                // make panel visible (panel is appended to body so CSS selector won't toggle it)
+                panel.style.display = 'block';
+                panel.style.opacity = '1';
+                panel.style.transform = 'translateY(0)';
+                panel.style.pointerEvents = 'auto';
+                positionPanel();
+                open = true;
+                // ensure active visible
+                updateActive();
+                document.addEventListener('click', onDocClick);
+                window.addEventListener('resize', positionPanel);
+                window.addEventListener('scroll', positionPanel, true);
+            }
+
+            function closePanel() {
+                wrapper.classList.remove('open');
+                wrapper.setAttribute('aria-expanded', 'false');
+                // animate hide then remove display to avoid abrupt jump
+                panel.style.opacity = '0';
+                panel.style.transform = 'translateY(-8px)';
+                panel.style.pointerEvents = 'none';
+                setTimeout(() => { if (!open) panel.style.display = 'none'; }, 220);
+                open = false;
+                document.removeEventListener('click', onDocClick);
+                window.removeEventListener('resize', positionPanel);
+                window.removeEventListener('scroll', positionPanel, true);
+            }
+
+            function onDocClick(e) { if (!wrapper.contains(e.target) && !panel.contains(e.target)) closePanel(); }
+
+            function updateActive() {
+                options.forEach((o, i) => {
+                    o.classList.toggle('selected', i === activeIndex);
+                    o.setAttribute('aria-selected', String(i === activeIndex));
+                    if (i === activeIndex) {
+                        // ensure option is visible inside the panel without scrolling the page
+                        if (list && list.scrollHeight > list.clientHeight) {
+                            list.scrollTop = Math.max(0, o.offsetTop - Math.round(list.clientHeight / 2) + Math.round(o.clientHeight / 2));
+                        }
+                    }
+                });
+                const sel = nativeSelect.options[activeIndex];
+                if (sel) label.textContent = sel.text;
+            }
+
+            // click handlers for options
+            options.forEach((o, idx) => {
+                if (o.classList.contains('disabled')) return;
+                o.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    activeIndex = idx;
+                    const sel = nativeSelect.options[activeIndex];
+                    if (sel) {
+                        nativeSelect.selectedIndex = activeIndex;
+                        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    updateActive();
+                    closePanel();
+                });
+            });
+
+            // keyboard navigation
+            trigger.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') { e.preventDefault(); openPanel(); activeIndex = Math.min(activeIndex + 1, options.length - 1); updateActive(); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); openPanel(); activeIndex = Math.max(activeIndex - 1, 0); updateActive(); }
+                else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!open) openPanel(); else { nativeSelect.selectedIndex = activeIndex; nativeSelect.dispatchEvent(new Event('change', { bubbles: true })); closePanel(); } }
+                else if (e.key === 'Escape') { if (open) { e.preventDefault(); closePanel(); } }
+            });
+
+            // also support key navigation when panel focused
+            panel.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, options.length - 1); updateActive(); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); updateActive(); }
+                else if (e.key === 'Enter') { e.preventDefault(); nativeSelect.selectedIndex = activeIndex; nativeSelect.dispatchEvent(new Event('change', { bubbles: true })); closePanel(); }
+                else if (e.key === 'Escape') { e.preventDefault(); closePanel(); }
+            });
+
+            trigger.addEventListener('click', (e) => { e.stopPropagation(); if (!open) openPanel(); else closePanel(); });
+
+            // keep native select changes in sync (if changed elsewhere)
+            nativeSelect.addEventListener('change', () => {
+                activeIndex = nativeSelect.selectedIndex >= 0 ? nativeSelect.selectedIndex : 0;
+                updateActive();
+            });
+
+            // initial state
+            panel.style.display = 'none';
+            updateActive();
+        }
+
+        // Custom datepicker popup attached to the date inputs (from / to)
+        const dateFromInput = document.getElementById('trace-date-from');
+        const dateToInput = document.getElementById('trace-date-to');
+        let activeDateInput = null;
+        let datepickerEl = null;
+        let dpState = { year: null, month: null, selected: null };
+
+        function formatISO(y, m, d) {
+            const mm = String(m).padStart(2,'0');
+            const dd = String(d).padStart(2,'0');
+            return `${y}-${mm}-${dd}`;
+        }
+
+        const _MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+        function openDatepicker() {
+            if (!activeDateInput) return;
+            if (datepickerEl) return;
+            datepickerEl = document.createElement('div');
+            datepickerEl.className = 'datepicker-popup';
+
+            // initialize state based on current active input or today
+            const current = activeDateInput.value ? new Date(activeDateInput.value) : new Date();
+            dpState.year = current.getFullYear();
+            dpState.month = current.getMonth();
+            dpState.selected = activeDateInput.value || '';
+
+            const monthLabel = `${_MONTH_NAMES[dpState.month]} ${dpState.year}`;
+            datepickerEl.innerHTML = `
+                <div class="datepicker-header">
+                    <div>
+                        <div class="datepicker-month">${monthLabel}</div>
+                    </div>
+                    <div class="datepicker-nav">
+                        <button class="datepicker-btn" data-action="prev" aria-label="Previous month">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                        </button>
+                        <button class="datepicker-btn" data-action="next" aria-label="Next month">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="datepicker-grid" id="dp-grid"></div>
+                <div class="datepicker-footer">
+                    <div class="datepicker-action" id="dp-clear">Clear</div>
+                    <div style="display:flex;gap:12px;"><div class="datepicker-action" id="dp-today">Today</div></div>
+                </div>
+            `;
+
+            document.body.appendChild(datepickerEl);
+            positionDatepicker();
+            renderCalendar(dpState.year, dpState.month);
+
+            // events
+            datepickerEl.querySelector('[data-action="prev"]').addEventListener('click', () => {
+                dpState.month -= 1;
+                if (dpState.month < 0) { dpState.month = 11; dpState.year -= 1; }
+                renderCalendar(dpState.year, dpState.month);
+            });
+            datepickerEl.querySelector('[data-action="next"]').addEventListener('click', () => {
+                dpState.month += 1;
+                if (dpState.month > 11) { dpState.month = 0; dpState.year += 1; }
+                renderCalendar(dpState.year, dpState.month);
+            });
+
+            datepickerEl.querySelector('#dp-clear').addEventListener('click', () => {
+                if (activeDateInput) activeDateInput.value = '';
+                closeDatepicker();
+            });
+            datepickerEl.querySelector('#dp-today').addEventListener('click', () => {
+                const t = new Date();
+                if (activeDateInput) activeDateInput.value = formatISO(t.getFullYear(), t.getMonth()+1, t.getDate());
+                closeDatepicker();
+            });
+
+            // outside click to close
+            setTimeout(() => { // allow this handler to be set after element is added
+                window.addEventListener('click', outsideClickHandler);
+            }, 0);
+        }
+
+        function positionDatepicker() {
+            if (!activeDateInput || !datepickerEl) return;
+            const rect = activeDateInput.getBoundingClientRect();
+            const top = rect.bottom + window.scrollY + 8;
+            const left = rect.left + window.scrollX;
+            datepickerEl.style.top = `${top}px`;
+            datepickerEl.style.left = `${left}px`;
+        }
+
+        function outsideClickHandler(e) {
+            if (!datepickerEl) return;
+            if (datepickerEl.contains(e.target) || e.target === activeDateInput) return;
+            closeDatepicker();
+        }
+
+        function closeDatepicker() {
+            if (!datepickerEl) return;
+            window.removeEventListener('click', outsideClickHandler);
+            datepickerEl.remove();
+            datepickerEl = null;
+        }
+
+        function renderCalendar(year, month) {
+            if (!datepickerEl) return;
+            const grid = datepickerEl.querySelector('#dp-grid');
+            // update header month label when calendar re-renders
+            const headerLabel = datepickerEl.querySelector('.datepicker-month');
+            if (headerLabel) headerLabel.textContent = `${_MONTH_NAMES[month]} ${year}`;
+            grid.innerHTML = '';
+
+            const weekDays = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+            weekDays.forEach(d => {
+                const w = document.createElement('div');
+                w.className = 'datepicker-weekday';
+                w.textContent = d;
+                grid.appendChild(w);
+            });
+
+            const first = new Date(year, month, 1);
+            const startDay = first.getDay();
+            const daysInMonth = new Date(year, month+1, 0).getDate();
+
+            // fill blanks
+            for (let i=0;i<startDay;i++) {
+                const b = document.createElement('div');
+                b.className = 'datepicker-day disabled';
+                grid.appendChild(b);
+            }
+
+            for (let d=1; d<=daysInMonth; d++) {
+                const el = document.createElement('div');
+                el.className = 'datepicker-day';
+                el.textContent = d;
+
+                const iso = formatISO(year, month+1, d);
+                if (activeDateInput && activeDateInput.value === iso) el.classList.add('selected');
+                const today = new Date();
+                if (today.getFullYear()===year && today.getMonth()===month && today.getDate()===d) el.classList.add('today');
+
+                el.addEventListener('click', () => {
+                    if (activeDateInput) activeDateInput.value = iso;
+                    closeDatepicker();
+                });
+
+                grid.appendChild(el);
+            }
+        }
+
+        // open when either date input clicked
+        if (dateFromInput) dateFromInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+            activeDateInput = dateFromInput;
+            if (!datepickerEl) openDatepicker();
+            else closeDatepicker();
+        });
+        if (dateToInput) dateToInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+            activeDateInput = dateToInput;
+            if (!datepickerEl) openDatepicker();
+            else closeDatepicker();
+        });
+
+        // reposition on resize/scroll
+        window.addEventListener('resize', () => { if (datepickerEl) positionDatepicker(); });
+        window.addEventListener('scroll', () => { if (datepickerEl) positionDatepicker(); }, true);
+
+        // Note: Battery ID is an optional override — when provided we fetch by id and show full record(s).
         async function _fetchTraceData(page) {
-            const batteryId = document.getElementById('trace-search').value.trim();
-            const status = document.getElementById('trace-status-filter').value;
-            const date = document.getElementById('trace-date-filter').value;
+            let dateFrom = document.getElementById('trace-date-from') ? document.getElementById('trace-date-from').value : '';
+            let dateTo = document.getElementById('trace-date-to') ? document.getElementById('trace-date-to').value : '';
+            const batteryId = (document.getElementById('trace-battery-id').value || '').trim();
+            const status = (document.getElementById('trace-status-filter').value || '').trim();
 
-            const params = { page, page_size: 15 };
-            if (batteryId) params.battery_id = batteryId;
-            if (status) params.status = status;
-            if (date) params.date = date;
+            // Normalize date formats: accept dd-mm-yyyy or yyyy-mm-dd and send yyyy-mm-dd
+            function normalizeDateInput(s) {
+                if (!s) return '';
+                if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+                const d = new Date(s);
+                if (!isNaN(d)) {
+                    const y = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    return `${y}-${mm}-${dd}`;
+                }
+                return s;
+            }
 
-            const result = await API.get('/admin/traceability', params);
+            dateFrom = normalizeDateInput(dateFrom);
+            dateTo = normalizeDateInput(dateTo);
 
-            if (result.success && result.data) {
-                _renderResults(result.data.items || []);
-                _renderPagination(result.data, page);
+            const params = {};
+            // If a battery id is provided, that takes precedence — backends often return a single record
+            if (batteryId) {
+                params.battery_id = batteryId;
+                // include status if supplied for more specific lookup
+                if (status) params.status = status;
             } else {
+                // if status is provided but both dates are empty, default dateFrom to today
+                if (status && !dateFrom && !dateTo) {
+                    const t = new Date();
+                    dateFrom = formatISO(t.getFullYear(), t.getMonth()+1, t.getDate());
+                }
+
+                params.page = page;
+                params.page_size = 15;
+                if (dateFrom) params.date_from = dateFrom;
+                if (dateTo) params.date_to = dateTo;
+                if (status) params.status = status;
+            }
+
+            console.debug('[Traceability] Request params:', params);
+
+            const result = await API.get('/api/v1/admin/traceability', params);
+
+            console.debug('[Traceability] API result:', result);
+
+            if (result && result.success && result.data) {
+                _renderMessage('');
+
+                // Normalize items for rendering: support different backend shapes
+                let items = [];
+                let pagination = null;
+
+                if (Array.isArray(result.data)) {
+                    items = result.data;
+                } else if (result.data.items && Array.isArray(result.data.items)) {
+                    items = result.data.items;
+                    pagination = result.data;
+                } else if (result.data && typeof result.data === 'object') {
+                    // single object result — wrap in array
+                    items = [result.data];
+                }
+
+                _renderResults(items);
+
+                // Render stats: battery-level when searching by id, otherwise a total-count when paginated
+                if (batteryId) {
+                    // show first matched battery as the stat
+                    _renderStats({ type: 'single', item: items[0] || null });
+                } else if (pagination) {
+                    _renderStats({ type: 'summary', total: pagination.total_items || 0 });
+                } else {
+                    _renderStats(null);
+                }
+
+                // Show pagination only when not searching by battery id and when pagination meta exists
+                if (!batteryId && pagination) {
+                    _renderPagination(pagination, page);
+                } else {
+                    const p = document.getElementById('trace-pagination');
+                    if (p) p.innerHTML = '';
+                }
+            } else {
+                const errMsg = result && (result.message || result.detail || result.error) ? (result.message || result.detail || result.error) : 'No traceability records found for the given criteria.';
+                _renderMessage(errMsg);
                 _renderResults([]);
+                _renderStats(null);
+                const p = document.getElementById('trace-pagination');
+                if (p) p.innerHTML = '';
+                if (result && !result.success) console.warn('[Traceability] API error:', result);
+            }
+        }
+
+        function _renderStats(payload) {
+            const container = document.getElementById('trace-stats');
+            if (!container) return;
+            if (!payload) {
+                container.innerHTML = '';
+                return;
+            }
+
+    
+
+            if (payload.type === 'summary') {
+                container.innerHTML = `
+                    <div class="card" style="padding:12px; display:flex; align-items:center; gap:12px;">
+                        <div style="font-size:13px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.6px;">Total Batteries</div>
+                        <div style="font-size:20px;font-weight:700;color:var(--color-text-primary);">${payload.total}</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (payload.type === 'single') {
+                const item = payload.item;
+                if (!item) {
+                    container.innerHTML = `<div class="card" style="padding:12px;color:var(--color-text-tertiary);">No battery found</div>`;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="card" style="display:flex;gap:18px;align-items:center;padding:12px;">
+                        <div style="min-width:160px">
+                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">Battery</div>
+                            <div style="font-weight:700;font-size:16px;color:var(--color-text-primary);">${item.battery_id || '—'}</div>
+                        </div>
+                        <div style="min-width:120px">
+                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">Model</div>
+                            <div style="font-weight:600">${item.model || '—'}</div>
+                        </div>
+                        <div style="min-width:120px">
+                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">BMS ID</div>
+                            <div style="font-weight:600">${item.bms_id || '—'}</div>
+                        </div>
+                        <div style="min-width:100px">
+                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">Testing</div>
+                            <div>${StatusBadge.render(item.grading_result)}</div>
+                        </div>
+                        <div style="min-width:100px">
+                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">PDI</div>
+                            <div>${StatusBadge.render(item.pdi_result)}</div>
+                        </div>
+                        <div style="min-width:120px">
+                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">Completed</div>
+                            <div style="font-weight:600">${item.created_at || item.assembled_at || '—'}</div>
+                        </div>
+                    </div>
+                `;
             }
         }
 
@@ -102,11 +584,10 @@ const Traceability = {
             const container = document.getElementById('trace-results');
             container.innerHTML = Table.render({
                 columns: [
-                    { key: 'battery_id', label: 'Battery ID', render: (v) => `<span class="text-mono fw-semibold">${v}</span>` },
+                    { key: 'battery_id', label: 'Battery_ID', render: (v) => `<span class="text-mono fw-semibold">${v}</span>` },
                     { key: 'model', label: 'Model' },
-                    { key: 'cell_count', label: 'Cells' },
-                    { key: 'bms_id', label: 'BMS ID', render: (v) => v ? `<span class="text-mono">${v}</span>` : '—' },
-                    { key: 'grading_result', label: 'Grading', render: (v) => StatusBadge.render(v) },
+                    { key: 'bms_id', label: 'BMS_ID', render: (v) => v ? `<span class="text-mono">${v}</span>` : '—' },
+                    { key: 'grading_result', label: 'Testing', render: (v) => StatusBadge.render(v) },
                     { key: 'pdi_result', label: 'PDI', render: (v) => StatusBadge.render(v) },
                     { key: 'status', label: 'Status', render: (v) => StatusBadge.render(v) },
                     { key: 'created_at', label: 'Date' }
@@ -187,6 +668,21 @@ const Traceability = {
                 currentPage = newPage;
                 _fetchTraceData(newPage);
             });
+        }
+
+        function _renderMessage(msg) {
+            const container = document.getElementById('trace-results');
+            let banner = document.getElementById('trace-results-msg');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'trace-results-msg';
+                banner.style.padding = '12px 16px';
+                banner.style.color = 'var(--color-text-secondary)';
+                banner.style.fontSize = '14px';
+                banner.style.minHeight = '40px';
+                container.insertBefore(banner, container.firstChild);
+            }
+            banner.textContent = msg || '';
         }
 
         return null;

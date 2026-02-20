@@ -8,6 +8,7 @@
  */
 
 import API from '../../core/api.js';
+import Auth from '../../core/auth.js';
 import KpiCard from '../../components/kpiCard.js';
 import Table from '../../components/table.js';
 import StatusBadge from '../../components/statusBadge.js';
@@ -67,6 +68,91 @@ const AdminDashboard = {
 
     async init() {
         await _loadDashboardData();
+
+        // Robust WebSocket connection with reconnection and fallback to localhost:8000
+        (function setupDashboardWS() {
+            const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = location.host; // respects host:port of current page
+            const token = Auth.getToken();
+            const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+            const primaryUrl = `${scheme}//${host}/reports/ws/dashboard${qs}`;
+            const fallbackUrl = `${scheme}//localhost:8000/reports/ws/dashboard${qs}`;
+
+            let ws = null;
+            let attempt = 0;
+            let reconnectTimer = null;
+
+            // Do not show a status element in the page — keep console-only status.
+            let statusEl = null;
+
+            function setStatus(text, color) {
+                if (statusEl) { statusEl.textContent = text; if (color) statusEl.style.color = color; }
+                console.debug('[Dashboard WS Status]', text);
+            }
+
+            function connect(urls) {
+                const url = urls.shift();
+                attempt += 1;
+                setStatus(`connecting (${attempt}) → ${url}`, 'var(--color-text-secondary)');
+                try {
+                    ws = new WebSocket(url);
+                } catch (err) {
+                    console.error('Dashboard WS constructor failed', err);
+                    scheduleReconnect(urls);
+                    return;
+                }
+
+                ws.onopen = () => {
+                    attempt = 0;
+                    setStatus('connected', 'var(--color-success)');
+                    console.log('Dashboard WebSocket connected', url);
+                    // expose latest ws
+                    window._dashboardWS = ws;
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const result = JSON.parse(event.data);
+                        if (result && result.success) {
+                            _renderKPIs(result.data.kpis);
+                            _renderRecentActivity(result.data.recent_activity);
+                            _renderTodayOutput(result.data.today_output);
+                        } else {
+                            console.warn('Dashboard WS message without success flag', result);
+                        }
+                    } catch (err) {
+                        console.error('Dashboard WS message parse error', err, event.data);
+                    }
+                };
+
+                ws.onerror = (e) => {
+                    console.error('Dashboard WebSocket error', e);
+                    setStatus('error', 'var(--color-error)');
+                };
+
+                ws.onclose = (ev) => {
+                    console.warn('Dashboard WebSocket closed', ev);
+                    setStatus('disconnected', 'var(--color-text-tertiary)');
+                    // try reconnect with backoff
+                    scheduleReconnect([primaryUrl, fallbackUrl]);
+                };
+            }
+
+            function scheduleReconnect(urls) {
+                if (reconnectTimer) return;
+                attempt = Math.min(attempt + 1, 6);
+                const delay = Math.min(30000, 1000 * Math.pow(2, attempt));
+                setStatus(`reconnecting in ${Math.round(delay/1000)}s`, 'var(--color-text-secondary)');
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connect(urls.slice());
+                }, delay);
+            }
+
+            // try primary first, then fallback
+            connect([primaryUrl, fallbackUrl]);
+        })();
+
         return null;
     }
 };

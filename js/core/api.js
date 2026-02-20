@@ -57,6 +57,15 @@ async function request(endpoint, options = {}) {
         }
 
         const data = await response.json();
+
+        // Normalize responses: many backend endpoints return an envelope
+        // { success: boolean, data: {...} } while some return the
+        // payload directly. Unwrap the envelope when present so callers
+        // can always use `result.data` as the payload.
+        if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'success') && Object.prototype.hasOwnProperty.call(data, 'data')) {
+            return { success: Boolean(data.success), data: data.data };
+        }
+
         return { success: true, data };
 
     } catch (err) {

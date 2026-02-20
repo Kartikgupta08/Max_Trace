@@ -1,116 +1,106 @@
 /**
  * components.css — Reusable Component Styles
  * 
- * Buttons, inputs, cards, tables, badges, modals, toasts, file uploaders.
- * All follow the 8px grid and enterprise design system.
- */
 
-/* ═══════════════════════════════════════════════════════════════════
-   BUTTONS
-   ═══════════════════════════════════════════════════════════════════ */
-
-.btn {
+/* Modern Custom Dropdown — production-ready, animated, accessible */
+/* Uses .modern-dropdown classes; JS will hide native select and sync value */
+.modern-dropdown {
+    position: relative;
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial;
+    min-width: 180px;
+}
+.modern-dropdown__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    height: 44px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid rgba(37,51,76,0.08);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: box-shadow 180ms ease, transform 120ms ease;
+}
+.modern-dropdown__trigger:focus {
+    outline: none;
+    box-shadow: 0 6px 18px rgba(30,58,138,0.12);
+}
+.modern-dropdown__label {
+    font-size: 13px;
+    color: #0f172a;
+    font-weight: 600;
+}
+.modern-dropdown__arrow {
+    width: 18px;
+    height: 18px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-6);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
-    line-height: 1;
-    border-radius: var(--radius-md);
-    transition: all var(--transition-fast);
-    white-space: nowrap;
-    min-height: 40px;
-    cursor: pointer;
-    border: 1px solid transparent;
+    color: rgba(37,51,76,0.6);
+    transition: transform 180ms ease;
 }
+.modern-dropdown.open .modern-dropdown__arrow { transform: rotate(180deg); }
 
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.modern-dropdown__panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: auto;
+    right: auto;
+    width: auto;
+    min-width: 180px;
+    max-width: 360px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 14px 40px rgba(8,20,40,0.12);
+    overflow: hidden;
+    z-index: 1500;
+    max-height: 260px;
+    opacity: 0;
+    transform: translateY(-8px);
     pointer-events: none;
+    transition: opacity 200ms ease, transform 220ms cubic-bezier(.2,.9,.2,1);
+}
+.modern-dropdown.open .modern-dropdown__panel {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
 }
 
-.btn--primary {
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-    border-color: var(--color-primary);
+.modern-dropdown__list {
+    max-height: 240px;
+    overflow: auto;
+    padding: 8px;
+}
+.modern-dropdown__option {
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    transition: background 120ms ease, transform 120ms ease;
+}
+.modern-dropdown__option:not(.disabled):hover { background: rgba(46, 106, 255, 0.06); transform: translateY(-1px); }
+.modern-dropdown__option.selected { background: #1e3a8a; color: #ffffff; }
+.modern-dropdown__option.disabled { opacity: 0.45; cursor: default; }
+
+/* subtle divider */
+.modern-dropdown__option + .modern-dropdown__option { margin-top: 4px; }
+
+/* small helper: ensure native select hidden when using modern dropdown */
+.modern-dropdown-hidden-native { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+
+/* Accessibility: focus ring for keyboard nav (applied to active option) */
+.modern-dropdown__option:focus { outline: none; box-shadow: 0 0 0 3px rgba(30,58,138,0.12); }
+
+/* Fade + slide keyframe (optional fallback) */
+@media (prefers-reduced-motion: no-preference) {
+    .modern-dropdown__panel { will-change: opacity, transform; }
 }
 
-.btn--primary:hover {
-    background: var(--color-primary-light);
-}
-
-.btn--secondary {
-    background: transparent;
-    color: var(--color-primary);
-    border-color: var(--color-border);
-}
-
-.btn--secondary:hover {
-    background: var(--color-primary-surface);
-    border-color: var(--color-primary);
-}
-
-.btn--danger {
-    background: var(--color-error);
-    color: var(--color-text-inverse);
-    border-color: var(--color-error);
-}
-
-.btn--danger:hover {
-    background: #B71C1C;
-}
-
-.btn--success {
-    background: var(--color-success);
-    color: var(--color-text-inverse);
-    border-color: var(--color-success);
-}
-
-.btn--success:hover {
-    background: #0B6E3E;
-}
-
-.btn--warning {
-    background: var(--color-warning);
-    color: var(--color-text-inverse);
-    border-color: var(--color-warning);
-}
-
-.btn--warning:hover {
-    background: #9A7209;
-}
-
-.btn--lg {
-    min-height: 48px;
-    padding: var(--space-4) var(--space-8);
-    font-size: var(--text-base);
-}
-
-.btn--sm {
-    min-height: 32px;
-    padding: var(--space-2) var(--space-4);
-    font-size: var(--text-xs);
-}
-
-.btn--full {
-    width: 100%;
-}
-
-.btn__spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   FORM INPUTS
-   ═══════════════════════════════════════════════════════════════════ */
+/* End modern-dropdown styles */
 
 .form-group {
     margin-bottom: var(--space-6);
@@ -398,6 +388,409 @@
 .data-table tbody tr:nth-child(even) {
     background: var(--color-bg-table-stripe);
 }
+
+/* Modern Custom Dropdown — production-ready, animated, accessible */
+/* Uses .modern-dropdown classes; JS will hide native select and sync value */
+.modern-dropdown {
+    position: relative;
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial;
+    min-width: 180px;
+}
+.modern-dropdown__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    height: 44px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 2px solid #1e3a8a; /* navy outer */
+    box-shadow: 0 0 0 6px #ffffff, 0 4px 12px rgba(0,0,0,0.06); /* white spacer + soft shadow */
+    cursor: pointer;
+    transition: box-shadow 180ms ease, transform 120ms ease;
+}
+.modern-dropdown__trigger:focus {
+    outline: none;
+    box-shadow: 0 0 0 6px #ffffff, 0 8px 26px rgba(30,58,138,0.12);
+}
+.modern-dropdown__label {
+    font-size: 14px;
+    color: #0f172a;
+    font-weight: 700;
+}
+.modern-dropdown__arrow {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(37,51,76,0.6);
+    transition: transform 180ms ease;
+}
+.modern-dropdown.open .modern-dropdown__arrow { transform: rotate(180deg); }
+
+.modern-dropdown__panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(30,58,138,0.06);
+    box-shadow: 0 18px 48px rgba(8,20,40,0.12);
+    overflow: hidden;
+    z-index: 1500;
+    max-height: 320px;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity 200ms ease, transform 220ms cubic-bezier(.2,.9,.2,1);
+}
+.modern-dropdown.open .modern-dropdown__panel {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.modern-dropdown__list {
+    max-height: 300px;
+    overflow: auto;
+    padding: 12px;
+}
+.modern-dropdown__option {
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    transition: background 120ms ease, transform 120ms ease;
+}
+.modern-dropdown__option:not(.disabled):hover { background: rgba(46, 106, 255, 0.06); transform: translateY(-1px); }
+.modern-dropdown__option.selected { background: #1e3a8a; color: #ffffff; }
+.modern-dropdown__option.disabled { opacity: 0.45; cursor: default; }
+
+/* style first option like a large pill header (matches screenshot) */
+.modern-dropdown__list .modern-dropdown__option:first-child {
+    background: #1e3a8a;
+    color: #fff;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-radius: 10px;
+    box-shadow: 0 8px 18px rgba(30,58,138,0.12);
+    margin-bottom: 10px;
+}
+
+/* subtle divider */
+.modern-dropdown__option + .modern-dropdown__option { margin-top: 4px; }
+
+/* small helper: ensure native select hidden when using modern dropdown */
+.modern-dropdown-hidden-native { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+
+/* Accessibility: focus ring for keyboard nav (applied to active option) */
+.modern-dropdown__option:focus { outline: none; box-shadow: 0 0 0 3px rgba(30,58,138,0.12); }
+
+/* Fade + slide keyframe (optional fallback) */
+@media (prefers-reduced-motion: no-preference) {
+    .modern-dropdown__panel { will-change: opacity, transform; }
+}
+
+/* End modern-dropdown styles */
+
+/* ---------- Traceability filter/date input enhancements ---------- */
+.filter-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible; /* prevent internal vertical scrolling */
+    margin-bottom: 18px;
+    position: -webkit-sticky; /* keep filters visible and fixed in place */
+    position: sticky;
+    top: 12px;
+    z-index: 900;
+    background: transparent; /* inherit parent background */
+}
+
+.filter-bar__group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex: 0 0 auto;
+    margin-right: 8px;
+}
+
+/* Modifier: center label and control inside a filter group (used for Model) */
+.filter-bar__group--center {
+    align-items: center;
+}
+.filter-bar__group--center .filter-bar__label {
+    align-self: center;
+    text-align: center;
+    width: 100%;
+}
+.filter-bar__group--center .filter-bar__input,
+.filter-bar__group--center .form-select,
+.filter-bar__group--center .filter-bar__select {
+    margin: 0 auto;
+}
+
+/* Make Model selects visually match the Status trigger (rounded, shadowed, bold) */
+.filter-bar .form-select,
+.filter-bar .filter-bar__select {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    height: 44px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid rgba(37,51,76,0.08);
+    box-shadow: 0 6px 18px rgba(12,63,110,0.06);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    min-width: 180px;
+    transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+.filter-bar .form-select:hover,
+.filter-bar .filter-bar__select:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(12,63,110,0.10);
+}
+.filter-bar .form-select:focus,
+.filter-bar .filter-bar__select:focus {
+    outline: none;
+    border-color: rgba(27,58,92,0.14);
+    box-shadow: 0 8px 20px rgba(27,58,92,0.10);
+}
+
+.filter-bar__label {
+    display:block;
+    font-size:12px;
+    font-weight:700;
+    color:var(--color-text-tertiary);
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    margin-bottom:6px;
+}
+
+.filter-bar .filter-bar__input,
+.filter-bar .form-select {
+    min-width: 180px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    min-height: 44px;
+}
+
+.filter-bar .form-select {
+    padding-right: 36px;
+    background-position: right 12px center;
+}
+
+/* Custom arrow for selects inside the filter bar */
+.filter-bar .form-select {
+    background-image: url("data:image/svg+xml,%3Csvg%20viewBox='0%200%2024%2024'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cpath%20d='M7%2010l5%205%205-5z'%20fill='%235A6178'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 14px;
+    background-position: right 12px center;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* Hide native dropdown arrow in WebKit browsers */
+.filter-bar .form-select::-webkit-appearance { appearance: none; }
+.filter-bar .form-select::-webkit-calendar-picker-indicator { display: none; }
+.filter-bar .form-select::-ms-expand { display: none; }
+
+/* Improve option list appearance where supported */
+.filter-bar .form-select option {
+    padding: 10px 14px;
+    background: #fff;
+    color: var(--color-text-primary);
+}
+
+/* Focus state for select to match other inputs */
+.filter-bar .form-select:focus {
+    border-color: rgba(27,58,92,0.14);
+    box-shadow: 0 8px 20px rgba(27,58,92,0.08);
+    outline: none;
+}
+
+/* Search button inside filter bar — blue theme and rounded */
+.filter-bar .btn,
+.filter-bar .btn--search {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border: 1px solid var(--color-primary);
+    border-radius: 10px;
+    min-height: 44px;
+    padding: 0 18px;
+    font-weight: var(--weight-semibold);
+    box-shadow: 0 6px 18px rgba(12,63,110,0.08);
+    transition: transform 140ms ease, box-shadow 140ms ease, opacity 120ms ease;
+}
+.filter-bar .btn--search:hover,
+.filter-bar .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(12,63,110,0.12);
+}
+
+.filter-bar .btn--search:active,
+.filter-bar .btn:active {
+    transform: translateY(0);
+    opacity: 0.95;
+}
+
+
+/* make selects slightly more compact on larger screens (avoid brittle nth-child selectors) */
+@media (min-width: 900px) {
+    .filter-bar .form-select {
+        min-width: 140px;
+    }
+}
+
+.filter-bar__input {
+    display: inline-block;
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: var(--text-base);
+    border-radius: 10px;
+    border: 1px solid rgba(92, 104, 122, 0.12);
+    background: linear-gradient(180deg, #FFFFFF 0%, #FAFBFF 100%);
+    box-shadow: 0 4px 10px rgba(39, 60, 81, 0.04);
+    transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+/* compact defaults for the filter bar when forced to a single row */
+.filter-bar .filter-bar__input,
+.filter-bar .form-select {
+    min-width: 160px;
+}
+
+.filter-bar .filter-bar__group:first-child .filter-bar__input {
+    /* make the primary id input a bit wider */
+    min-width: 260px;
+}
+
+.filter-bar .filter-bar__group .filter-bar__input[type="date"] {
+    min-width: 180px;
+}
+
+.filter-bar__input:focus {
+    outline: none;
+    border-color: rgba(27, 58, 92, 0.14);
+    box-shadow: 0 8px 20px rgba(27, 58, 92, 0.08);
+    transform: translateY(-1px);
+}
+
+.filter-bar__input[type="date"] {
+    /* room for calendar icon */
+    padding-right: 44px;
+    /* custom calendar icon (svg data-uri) */
+    background-image: url("data:image/svg+xml,%3Csvg%20fill='%235A6178'%20viewBox='0%200%2020%2020'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cpath%20d='M6%202v2H5a1%201%200%2000-1%201v11a1%201%200%20001%201h10a1%201%200%20001-1V5a1%201%200%2000-1-1h-1V2h-2v2H8V2H6zM5%208h10v8H5V8z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 18px;
+}
+
+/* Hide native picker icon to rely on our custom icon (WebKit) */
+.filter-bar__input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    display: none;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--color-text-primary);
+    transition: transform 140ms ease, box-shadow 140ms ease, opacity 120ms ease;
+}
+
+.btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.btn--primary {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border: 1px solid var(--color-primary);
+    box-shadow: 0 6px 18px rgba(12, 63, 110, 0.08);
+    border-radius: 10px;
+}
+.btn--primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(12, 63, 110, 0.12);
+}
+.btn--primary:active { transform: translateY(0); opacity: 0.95; }
+
+/* Success (green) button */
+.btn--success {
+    background: var(--color-success);
+    color: var(--color-text-inverse);
+    border: 1px solid var(--color-success);
+    box-shadow: 0 6px 18px rgba(12, 110, 63, 0.08);
+}
+.btn--success:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(12, 110, 63, 0.12); }
+.btn--success:active { transform: translateY(0); opacity: 0.95; }
+
+/* Small helper hint style used below header */
+.trace-hint {
+    display: block;
+}
+
+/* Simple datepicker popup */
+.datepicker-popup {
+    position: absolute;
+    z-index: 1200;
+    width: 560px;
+    background: linear-gradient(180deg, #FFFFFF, #FBFDFF);
+    border-radius: 14px;
+    border: 1px solid rgba(92,104,122,0.06);
+    box-shadow: 0 18px 50px rgba(23,42,69,0.12);
+    padding: 14px 18px;
+    font-family: var(--font-family);
+    animation: dp-fade 180ms ease;
+}
+
+@keyframes dp-fade { from { opacity: 0; transform: translateY(-6px);} to { opacity:1; transform: translateY(0);} }
+
+.datepicker-header {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-bottom:14px;
+    position:relative;
+}
+.datepicker-month { font-weight:800; color:var(--color-text-primary); font-size:18px; }
+.datepicker-nav { display:flex; gap:8px; align-items:center; }
+.datepicker-btn { width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border: none; cursor:pointer; background: var(--color-primary); box-shadow: 0 8px 20px rgba(12,63,110,0.12); }
+.datepicker-btn:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(12,63,110,0.16); }
+.datepicker-btn svg { width:14px; height:14px; fill: #fff; }
+.datepicker-btn[data-action="prev"] { position: absolute; left: 12px; top: 8px; }
+.datepicker-btn[data-action="next"] { position: absolute; right: 12px; top: 8px; }
+
+.datepicker-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:12px; padding:10px 6px; }
+.datepicker-weekday { font-size:13px; color:var(--color-text-tertiary); text-align:center; font-weight:600; }
+.datepicker-day { height:56px; display:flex; align-items:center; justify-content:center; cursor:pointer; border-radius:12px; font-weight:600; color:var(--color-text-primary); background: #F7F9FB; transition: transform 140ms ease, box-shadow 140ms ease; }
+.datepicker-day:hover { transform: translateY(-6px); box-shadow: 0 12px 26px rgba(21,45,78,0.06); }
+.datepicker-day.disabled { color: rgba(90,100,120,0.4); cursor:default; opacity:0.5; transform:none; box-shadow:none; background: transparent; }
+.datepicker-day.today { outline: 2px solid rgba(59,130,246,0.12); border-radius:10px; }
+.datepicker-day.selected { background: #ff4d4f; color: #fff; box-shadow: 0 10px 30px rgba(255,77,79,0.12); }
+
+.datepicker-footer { display:flex; justify-content:space-between; margin-top:14px; font-size:14px; padding: 8px 6px; }
+.datepicker-action { color: var(--color-primary); cursor:pointer; font-weight:700; }
 
 .data-table tbody tr:nth-child(even):hover {
     background: var(--color-bg-table-row-hover);

@@ -77,7 +77,7 @@ const PdiInspection = {
 
                         <!-- Actions -->
                         <div style="display:flex; justify-content:flex-end; margin-top:var(--space-5); padding-top:var(--space-4); border-top:1px solid var(--color-border-light); gap:var(--space-3);">
-                            <button type="button" id="btn-reset-pdi" class="btn btn--secondary">
+                            <button type="button" id="btn-reset-pdi" class="btn btn--success">
                                 Reset
                             </button>
                             <button type="button" id="btn-submit-pdi" class="btn btn--primary btn--lg" disabled style="display:inline-flex; align-items:center; gap:8px;">
