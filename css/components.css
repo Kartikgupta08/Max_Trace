@@ -646,6 +646,17 @@
     opacity: 0.95;
 }
 
+/* Slightly lower the search button so it aligns visually with inputs */
+.filter-bar .btn--search {
+    margin-top: 28px;
+}
+
+/* Target the actual search button used on the traceability page */
+.filter-bar #btn-trace-search,
+.filter-bar .btn--primary {
+    margin-top: 28px;
+}
+
 
 /* make selects slightly more compact on larger screens (avoid brittle nth-child selectors) */
 @media (min-width: 900px) {

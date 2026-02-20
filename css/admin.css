@@ -232,6 +232,14 @@
     margin-top: var(--space-1);
 }
 
+/* Center Sign In button horizontally inside the login card */
+.login-card form .btn--full {
+    display: block;
+    margin: 24px auto 0;
+    width: auto;
+}
+
+
 /* ─── Unauthorized Page ─────────────────────────────────────────── */
 .unauthorized-page {
     display: flex;

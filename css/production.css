@@ -53,6 +53,7 @@
     color: var(--color-text-tertiary);
     margin-top: 1px;
 }
+/* No local overrides for register button; use global button styles */
 
 /* ─── Multi-Cell Input Grid ─────────────────────────────────────── */
 .cell-grid {

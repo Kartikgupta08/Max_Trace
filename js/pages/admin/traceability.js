@@ -23,7 +23,6 @@ const Traceability = {
                 </div>
 
                 <div class="trace-hint" style="margin:8px 0 18px 0;color:var(--color-text-secondary);font-size:14px;">
-                    Trace battery by Battery_ID or by date.
                 </div>
 
                 <!-- Search / Filter (Battery ID + Date) -->
