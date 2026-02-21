@@ -71,12 +71,13 @@ const CellRegistration = {
                                     autofocus
                                     maxlength="64"
                                 >
-                                <div class="form-hint">Barcode scanner will auto-submit after scan</div>
                             </div>
 
-                            <button type="submit" id="btn-register" class="btn btn--primary btn--lg btn--full">
-                                Register Cell
-                            </button>
+                        <button type="submit" id="btn-register" 
+                              class="btn btn--primary btn--lg btn--full">
+                             <span class="plus-icon">+</span>
+                             Register Cell
+                        </button>
                         </form>
                     </div>
 

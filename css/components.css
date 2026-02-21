@@ -740,10 +740,10 @@
     box-shadow: 0 6px 18px rgba(12, 63, 110, 0.08);
     border-radius: 10px;
 }
-.btn--primary:hover {
+/* .btn--primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 30px rgba(12, 63, 110, 0.12);
-}
+} */
 .btn--primary:active { transform: translateY(0); opacity: 0.95; }
 
 /* Success (green) button */
@@ -1376,4 +1376,15 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-6);
+}
+/* Register cell button — full width, matches input height */
+#btn-register {
+    width: 100%;
+    height: 64px;              /* match input height */
+    font-size: 18px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;                 /* space between + and text */
 }

@@ -1,10 +1,6 @@
 /**
  * dashboard.js — Admin Dashboard
- * 
- * KPI cards, summary counts, and high-level production overview.
- * Read-only monitoring interface for managers.
- * 
- * API: GET /api/v1/admin/dashboard
+ * * Updated with direct backend port mapping and complete UI sync.
  */
 
 import API from '../../core/api.js';
@@ -22,16 +18,13 @@ const AdminDashboard = {
                     <p class="page-header__subtitle">Production overview and key performance indicators</p>
                 </div>
 
-                <!-- KPI Cards -->
                 <div class="kpi-grid" id="kpi-grid">
                     <div class="kpi-card" style="opacity:0.5;">
                         <div class="kpi-card__content"><div class="kpi-card__label">Loading...</div></div>
                     </div>
                 </div>
 
-                <!-- Two-column layout -->
                 <div class="dashboard-grid">
-                    <!-- Recent Activity -->
                     <div class="card">
                         <div class="card__header">
                             <div class="card__title">Recent Activity</div>
@@ -42,7 +35,6 @@ const AdminDashboard = {
                         </div>
                     </div>
 
-                    <!-- Production Status -->
                     <div class="card">
                         <div class="card__header">
                             <div class="card__title">Stage Breakdown</div>
@@ -52,7 +44,6 @@ const AdminDashboard = {
                         </div>
                     </div>
 
-                    <!-- Today's Output (full width) -->
                     <div class="card dashboard-grid__item--full">
                         <div class="card__header">
                             <div class="card__title">Today's Production Output</div>
@@ -69,20 +60,18 @@ const AdminDashboard = {
     async init() {
         await _loadDashboardData();
 
-        // Robust WebSocket connection with reconnection and fallback to localhost:8000
         (function setupDashboardWS() {
             const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = location.host; // respects host:port of current page
             const token = Auth.getToken();
             const qs = token ? `?token=${encodeURIComponent(token)}` : '';
-            const primaryUrl = `${scheme}//${host}/reports/ws/dashboard${qs}`;
-            const fallbackUrl = `${scheme}//localhost:8000/reports/ws/dashboard${qs}`;
+            
+            // FIX: Point to port 8000 and use the correct /admin prefix
+            const primaryUrl = `${scheme}//127.0.0.1:8000/admin/ws/dashboard${qs}`;
+            const fallbackUrl = `${scheme}//localhost:8000/admin/ws/dashboard${qs}`;
 
             let ws = null;
             let attempt = 0;
             let reconnectTimer = null;
-
-            // Do not show a status element in the page — keep console-only status.
             let statusEl = null;
 
             function setStatus(text, color) {
@@ -106,7 +95,6 @@ const AdminDashboard = {
                     attempt = 0;
                     setStatus('connected', 'var(--color-success)');
                     console.log('Dashboard WebSocket connected', url);
-                    // expose latest ws
                     window._dashboardWS = ws;
                 };
 
@@ -117,6 +105,8 @@ const AdminDashboard = {
                             _renderKPIs(result.data.kpis);
                             _renderRecentActivity(result.data.recent_activity);
                             _renderTodayOutput(result.data.today_output);
+                            // FIX: Added stage breakdown render for full UI sync
+                            _renderStageBreakdown(result.data.stage_breakdown);
                         } else {
                             console.warn('Dashboard WS message without success flag', result);
                         }
@@ -133,7 +123,6 @@ const AdminDashboard = {
                 ws.onclose = (ev) => {
                     console.warn('Dashboard WebSocket closed', ev);
                     setStatus('disconnected', 'var(--color-text-tertiary)');
-                    // try reconnect with backoff
                     scheduleReconnect([primaryUrl, fallbackUrl]);
                 };
             }
@@ -149,13 +138,15 @@ const AdminDashboard = {
                 }, delay);
             }
 
-            // try primary first, then fallback
             connect([primaryUrl, fallbackUrl]);
         })();
 
         return null;
     }
 };
+
+// ... Render functions (_loadDashboardData, _renderKPIs, etc.) remain below
+// Ensure _renderStageBreakdown is called in the REST load as well.
 
 async function _loadDashboardData() {
     const result = await API.get('/admin/dashboard');
@@ -166,7 +157,6 @@ async function _loadDashboardData() {
         _renderStageBreakdown(result.data.stage_breakdown);
         _renderTodayOutput(result.data.today_output);
     } else {
-        // Render with placeholder/demo data for structure
         _renderKPIs(null);
         _renderRecentActivity(null);
         _renderStageBreakdown(null);
@@ -184,7 +174,10 @@ function _renderKPIs(kpis) {
         pending_inspection: { value: '—', change: '' }
     };
 
-    document.getElementById('kpi-grid').innerHTML = `
+    const kpiGrid = document.getElementById('kpi-grid');
+    if (!kpiGrid) return;
+
+    kpiGrid.innerHTML = `
         ${KpiCard.render({ label: 'Total Cells Registered', value: data.total_cells?.value ?? '—', icon: 'battery_std', variant: 'primary', change: data.total_cells?.change })}
         ${KpiCard.render({ label: 'Batteries Assembled', value: data.batteries_assembled?.value ?? '—', icon: 'build', variant: 'info', change: data.batteries_assembled?.change })}
         ${KpiCard.render({ label: 'PDI Pass Rate', value: data.pdi_pass_rate?.value ?? '—', icon: 'verified', variant: 'success', change: data.pdi_pass_rate?.change })}
@@ -196,6 +189,7 @@ function _renderKPIs(kpis) {
 
 function _renderRecentActivity(activities) {
     const el = document.getElementById('recent-activity');
+    if (!el) return;
     if (!activities || activities.length === 0) {
         el.innerHTML = Table.render({
             columns: [
@@ -223,6 +217,7 @@ function _renderRecentActivity(activities) {
 
 function _renderStageBreakdown(stages) {
     const el = document.getElementById('stage-breakdown');
+    if (!el) return;
     const data = stages || [
         { stage: 'Cell Registration', count: '—', status: 'PENDING' },
         { stage: 'Cell Grading', count: '—', status: 'PENDING' },
@@ -250,6 +245,7 @@ function _renderStageBreakdown(stages) {
 
 function _renderTodayOutput(output) {
     const el = document.getElementById('today-output');
+    if (!el) return;
     if (!output || output.length === 0) {
         el.innerHTML = Table.render({
             columns: [
