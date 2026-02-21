@@ -25,8 +25,8 @@ const CellInventory = {
                 <!-- Filters -->
                 <div class="filter-bar">
                     <div class="filter-bar__group">
-                        <label class="filter-bar__label">Brand Name</label>
-                        <input type="text" id="inv-cell-id" class="filter-bar__input" placeholder="Enter Brand Name">
+                        <label class="filter-bar__label">CELL ID</label>
+                        <input type="text" id="inv-cell-id" class="filter-bar__input" placeholder="Enter Cell ID">
                     </div>
                     <div class="filter-bar__group">
                         <label class="filter-bar__label">Date From</label>
@@ -42,8 +42,6 @@ const CellInventory = {
                             <option value="">All Brands</option>
                             <option value="INR18650-25R">INR18650-25R</option>
                             <option value="INR18650-30Q">INR18650-30Q</option>
-                            <option value="INR21700-40T">INR21700-40T</option>
-                            <option value="INR21700-50E">INR21700-50E</option>
                         </select>
                     </div>
                     <div class="filter-bar__group">
@@ -71,27 +69,46 @@ const CellInventory = {
     },
 
     async init() {
-        let currentPage = 1;
 
-        const searchBtn = document.getElementById('btn-inv-search');
-        const cellInput = document.getElementById('inv-cell-id');
-        const dateFromInput = document.getElementById('inv-date-from');
-        const dateToInput = document.getElementById('inv-date-to');
-        const statusSelect = document.getElementById('inv-status');
-        const modelSelect = document.getElementById('inv-model');
+            let currentPage = 1;
 
-        searchBtn.addEventListener('click', () => {
-            currentPage = 1;
-            _fetchInventory(currentPage);
-        });
+            const searchBtn = document.getElementById('btn-inv-search');
+            const cellInput = document.getElementById('inv-cell-id');
+            const dateFromInput = document.getElementById('inv-date-from');
+            const dateToInput = document.getElementById('inv-date-to');
+            const statusSelect = document.getElementById('inv-status');
+            const modelSelect = document.getElementById('inv-model');
 
-        // Enter key triggers search for Cell ID
-        if (cellInput) cellInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { currentPage = 1; _fetchInventory(currentPage); } });
+            // Dynamically load brands from backend and populate dropdown
+            async function loadBrandsDropdown() {
+                const result = await API.get('/admin/cells/brands');
+                if (result.success && Array.isArray(result.data)) {
+                    // Remove all except first option (All Brands)
+                    while (modelSelect.options.length > 1) {
+                        modelSelect.remove(1);
+                    }
+                    result.data.forEach(brand => {
+                        const opt = document.createElement('option');
+                        opt.value = brand;
+                        opt.text = brand;
+                        modelSelect.appendChild(opt);
+                    });
+                }
+            }
+            await loadBrandsDropdown();
 
-        // datepicker popup for the From/To inputs (shared, active input like traceability)
-        let activeDateInput = null;
-        let datepickerEl = null;
-        let dpState = { year: null, month: null, selected: null };
+            searchBtn.addEventListener('click', () => {
+                currentPage = 1;
+                _fetchInventory(currentPage);
+            });
+
+            // Enter key triggers search for Cell ID
+            if (cellInput) cellInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { currentPage = 1; _fetchInventory(currentPage); } });
+
+            // datepicker popup for the From/To inputs (shared, active input like traceability)
+            let activeDateInput = null;
+            let datepickerEl = null;
+            let dpState = { year: null, month: null, selected: null };
 
         function formatISO(y, m, d) {
             const mm = String(m).padStart(2,'0');
