@@ -52,6 +52,11 @@ const Traceability = {
                         </select>
                     </div>
                     <button id="btn-trace-search" class="btn btn--primary">Search</button>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M10 2v8m0 0l4-4m-4 4l-4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <rect x="3" y="16" width="14" height="2" rx="1" fill="#fff"/>
+                      </svg>
+                    </button>
                 </div>
 
                 <!-- Stats area -->
@@ -638,7 +643,25 @@ const Traceability = {
                         <div class="detail-panel__label">Dispatched At</div>
                         <div class="detail-panel__value">${row.dispatched_at || '—'}</div>
                     </div>
-                </div>
+
+
+
+
+
+                    <div style="margin-top:18px;text-align:right;">
+                        <button class="download-btn" onclick="window.downloadBatteryReport && window.downloadBatteryReport('${row.battery_id}')">
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2v8m0 0l4-4m-4 4l-4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <rect x="3" y="16" width="14" height="2" rx="1" fill="#fff"/>
+                          </svg>
+                          Download
+                        </button>
+                    </div>
+                
+                
+                
+                
+                    </div>
                 ${cells.length > 0 ? `
                     <div style="margin-top:16px;">
                         <div style="font-size:var(--text-xs);font-weight:600;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
@@ -691,3 +714,40 @@ const Traceability = {
 };
 
 export default Traceability;
+
+// Add global download handler
+window.downloadBatteryReport = function(batteryId) {
+  if (!batteryId || batteryId === '—') {
+    alert('No Battery ID found to download report.');
+    return;
+  }
+  fetch(`http://localhost:8000/reports/generate-full-audit/${encodeURIComponent(batteryId)}`, {
+    method: 'GET',
+    headers: {
+      'accept': 'application/json'
+    }
+  })
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to download report');
+      // Get filename from content-disposition header
+      const disposition = response.headers.get('content-disposition');
+      let filename = `BatteryReport_${batteryId}.xlsx`;
+      if (disposition && disposition.indexOf('filename=') !== -1) {
+        filename = disposition.split('filename=')[1].replace(/"/g, '');
+      }
+      return response.blob().then(blob => ({ blob, filename }));
+    })
+    .then(({ blob, filename }) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    })
+    .catch(() => {
+      alert('Failed to download battery report.');
+    });
+};

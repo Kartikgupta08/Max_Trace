@@ -829,7 +829,7 @@
 .datepicker-popup {
     position: absolute;
     z-index: 1200;
-    width: 560px;
+    width: 420px;
     background: linear-gradient(180deg, #FFFFFF, #FBFDFF);
     border-radius: 14px;
     border: 1px solid rgba(92,104,122,0.06);
@@ -1448,3 +1448,30 @@
     justify-content: center;
     gap: 10px;                 /* space between + and text */
 }
+
+.download-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1a365d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 18px;
+  height: 44px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(30,58,138,0.10);
+  transition: background 120ms, box-shadow 120ms;
+}
+.download-btn:hover {
+  background: #234e8c;
+  box-shadow: 0 8px 24px rgba(30,58,138,0.16);
+}
+.download-btn svg {
+  display: inline-block;
+  vertical-align: middle;
+  fill: #fff;
+}
+
