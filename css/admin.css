@@ -235,8 +235,8 @@
 /* Center Sign In button horizontally inside the login card */
 .login-card form .btn--full {
     display: block;
-    margin: 24px auto 0;
-    width: auto;
+    margin: 24px 0 0 0;
+    width: 100%;
 }
 
 

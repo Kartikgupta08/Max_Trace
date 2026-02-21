@@ -114,20 +114,20 @@ const ROUTES = [
         loader: () => import('./pages/admin/dashboard.js')
     },
     {
-        path: '#/admin/traceability',
-        title: 'Battery Traceability',
-        roles: ['ADMIN'],
-        section: 'Admin Panel',
-        icon: 'timeline',
-        loader: () => import('./pages/admin/traceability.js')
-    },
-    {
         path: '#/admin/cell-inventory',
         title: 'Cell Inventory Status',
         roles: ['ADMIN'],
         section: 'Admin Panel',
         icon: 'inventory',
         loader: () => import('./pages/admin/cellInventory.js')
+    },
+    {
+        path: '#/admin/traceability',
+        title: 'Battery Traceability',
+        roles: ['ADMIN'],
+        section: 'Admin Panel',
+        icon: 'timeline',
+        loader: () => import('./pages/admin/traceability.js')
     },
     {
         path: '#/admin/failed-batteries',

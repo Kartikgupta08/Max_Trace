@@ -258,16 +258,10 @@
     color: var(--color-success);
 }
 
-.checklist__action-btn--pass:hover {
-    background: var(--color-success-bg);
-    border-color: var(--color-success);
-}
+/* Hover effect removed */
 
 .checklist__action-btn--fail {
     color: var(--color-error);
 }
 
-.checklist__action-btn--fail:hover {
-    background: var(--color-error-bg);
-    border-color: var(--color-error);
-}
+/* Hover effect removed */

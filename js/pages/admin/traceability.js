@@ -470,7 +470,7 @@ const Traceability = {
 
             console.debug('[Traceability] Request params:', params);
 
-            const result = await API.get('/api/v1/admin/traceability', params);
+            const result = await API.get('/admin/traceability', params);
 
             console.debug('[Traceability] API result:', result);
 
@@ -583,13 +583,15 @@ const Traceability = {
             const container = document.getElementById('trace-results');
             container.innerHTML = Table.render({
                 columns: [
-                    { key: 'battery_id', label: 'Battery_ID', render: (v) => `<span class="text-mono fw-semibold">${v}</span>` },
+                    { key: 'battery_id', label: 'Battery ID', render: (v) => `<span class="text-mono fw-semibold">${v}</span>` },
                     { key: 'model', label: 'Model' },
-                    { key: 'bms_id', label: 'BMS_ID', render: (v) => v ? `<span class="text-mono">${v}</span>` : '—' },
+                    { key: 'bms_id', label: 'BMS ID', render: (v) => v ? `<span class="text-mono">${v}</span>` : '—' },
                     { key: 'grading_result', label: 'Testing', render: (v) => StatusBadge.render(v) },
                     { key: 'pdi_result', label: 'PDI', render: (v) => StatusBadge.render(v) },
                     { key: 'status', label: 'Status', render: (v) => StatusBadge.render(v) },
-                    { key: 'created_at', label: 'Date' }
+                    { key: 'created_at', label: 'Created At' },
+                    { key: 'assembled_at', label: 'Assembled On' },
+                    { key: 'dispatch_destination', label: 'Dispatch Destination' }
                 ],
                 rows: items,
                 expandable: true,

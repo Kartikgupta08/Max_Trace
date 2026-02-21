@@ -25,8 +25,8 @@ const CellInventory = {
                 <!-- Filters -->
                 <div class="filter-bar">
                     <div class="filter-bar__group">
-                        <label class="filter-bar__label">Cell ID</label>
-                        <input type="text" id="inv-cell-id" class="filter-bar__input" placeholder="Enter Cell ID">
+                        <label class="filter-bar__label">Brand Name</label>
+                        <input type="text" id="inv-cell-id" class="filter-bar__input" placeholder="Enter Brand Name">
                     </div>
                     <div class="filter-bar__group">
                         <label class="filter-bar__label">Date From</label>
@@ -37,9 +37,9 @@ const CellInventory = {
                         <input type="date" id="inv-date-to" class="filter-bar__input">
                     </div>
                     <div class="filter-bar__group filter-bar__group--center">
-                        <label class="filter-bar__label">Model</label>
+                        <label class="filter-bar__label">Brand Name</label>
                         <select id="inv-model" class="filter-bar__input form-select">
-                            <option value="">All Models</option>
+                            <option value="">All Brands</option>
                             <option value="INR18650-25R">INR18650-25R</option>
                             <option value="INR18650-30Q">INR18650-30Q</option>
                             <option value="INR21700-40T">INR21700-40T</option>
@@ -418,7 +418,7 @@ const CellInventory = {
                 tableEl.innerHTML = Table.render({
                     columns: [
                         { key: 'cell_id', label: 'Cell ID', render: (v) => `<span class="text-mono fw-semibold">${v}</span>` },
-                        { key: 'model', label: 'Model' },
+                        { key: 'model', label: 'Brand Name' },
                         { key: 'status', label: 'Status', render: (v) => StatusBadge.render(v) },
                         { key: 'registered_at', label: 'Date', render: (v) => v ? (typeof v === 'string' && v.indexOf('T')>0 ? v.split('T')[0] : v) : '—' }
                     ],
@@ -445,7 +445,7 @@ const CellInventory = {
                 tableEl.innerHTML = Table.render({
                     columns: [
                         { key: 'cell_id', label: 'Cell ID' },
-                        { key: 'model', label: 'Model' },
+                        { key: 'model', label: 'Brand Name' },
                         { key: 'status', label: 'Status', render: (v) => StatusBadge.render(v) },
                         { key: 'registered_at', label: 'Date', render: (v) => v ? (typeof v === 'string' && v.indexOf('T')>0 ? v.split('T')[0] : v) : '—' }
                     ],

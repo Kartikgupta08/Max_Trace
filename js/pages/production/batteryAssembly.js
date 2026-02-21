@@ -133,7 +133,7 @@ const BatteryAssembly = {
                                     </select>
                                 </div>
 
-                                <button type="button" id="btn-add-model" class="btn btn--secondary" style="display:inline-flex; align-items:center; gap:6px; height:44px; white-space:nowrap;">
+                                <button type="button" id="btn-add-model" class="btn btn--primary" style="display:inline-flex; align-items:center; gap:6px; height:44px; white-space:nowrap;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">add</span>
                                     Add Model
                                 </button>

@@ -179,10 +179,7 @@
     justify-content: center;
 }
 
-.sidebar__logout-btn:hover {
-    color: var(--color-error);
-    background: rgba(198, 40, 40, 0.1);
-}
+/* Hover effect removed */
 
 /* ─── Content Area ──────────────────────────────────────────────── */
 .content {

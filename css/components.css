@@ -1,3 +1,53 @@
+/* ===== CLEAN SINGLE ROW FILTER BAR ===== */
+
+.filter-bar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible; /* prevent internal vertical scrolling */
+    margin-bottom: 18px;
+    position: -webkit-sticky; /* keep filters visible and fixed in place */
+    position: sticky;
+    top: 12px;
+    z-index: 900;
+    background: transparent; /* inherit parent background */
+}
+
+/* Each filter item (label + input) */
+.filter-bar__group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;              /* CENTER label over button */
+    min-width: 180px;
+}
+
+/* Label */
+.filter-bar__label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    text-align: center;               /* perfectly centered */
+}
+
+/* Input / Select / Dropdown */
+.filter-bar__input,
+.filter-bar .form-select,
+.filter-bar .modern-dropdown__trigger {
+    width: 210px;                     /* equal width for all */
+    height: 44px;
+}
+.filter-bar__group--status .form-select {
+    width: 210px;
+    min-width: 210px;
+    max-width: 210px;
+}
+.filter-bar__group--status {
+    align-items: flex-start;
+    margin-left: 0;
+}
 /**
  * components.css — Reusable Component Styles
  * 
@@ -501,7 +551,7 @@
 /* ---------- Traceability filter/date input enhancements ---------- */
 .filter-bar {
     display: flex;
-    gap: 12px;
+    gap: 4px;
     align-items: center;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -516,35 +566,53 @@
 
 .filter-bar__group {
     position: relative;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     flex: 0 0 auto;
-    margin-right: 8px;
+    /* margin-right removed for equal gap */
+}
+/* Uniform width for all inputs */
+.filter-bar input,
+.filter-bar select,
+.filter-bar .modern-dropdown__trigger {
+    width: 220px;
+    height: 44px;
+}
+
+/* Button alignment */
+.filter-bar__actions {
+    display: flex;
+    align-items: flex-end;
+    flex: 0 0 auto;
+}
+
+.filter-bar__actions button {
+    height: 44px;
+    padding: 0 28px;
 }
 
 /* Modifier: center label and control inside a filter group (used for Model) */
 .filter-bar__group--center {
-    align-items: center;
+    align-items: flex-start;
+    margin-left: 0;
 }
 .filter-bar__group--center .filter-bar__label {
-    align-self: center;
+    display: block;
+    width: 210px;
+    margin: 0 auto 6px auto;
     text-align: center;
-    width: 100%;
-}
-.filter-bar__group--center .filter-bar__input,
-.filter-bar__group--center .form-select,
-.filter-bar__group--center .filter-bar__select {
-    margin: 0 auto;
 }
 
 /* Make Model selects visually match the Status trigger (rounded, shadowed, bold) */
 .filter-bar .form-select,
 .filter-bar .filter-bar__select {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    justify-content: flex-start;
+    text-align: left;
+    gap: 0;
     padding: 10px 16px;
     height: 44px;
     border-radius: 10px;
@@ -634,11 +702,7 @@
     box-shadow: 0 6px 18px rgba(12,63,110,0.08);
     transition: transform 140ms ease, box-shadow 140ms ease, opacity 120ms ease;
 }
-.filter-bar .btn--search:hover,
-.filter-bar .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(12,63,110,0.12);
-}
+/* Hover effect removed */
 
 .filter-bar .btn--search:active,
 .filter-bar .btn:active {
@@ -753,7 +817,7 @@
     border: 1px solid var(--color-success);
     box-shadow: 0 6px 18px rgba(12, 110, 63, 0.08);
 }
-.btn--success:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(12, 110, 63, 0.12); }
+/* Hover effect removed */
 .btn--success:active { transform: translateY(0); opacity: 0.95; }
 
 /* Small helper hint style used below header */
@@ -787,7 +851,7 @@
 .datepicker-month { font-weight:800; color:var(--color-text-primary); font-size:18px; }
 .datepicker-nav { display:flex; gap:8px; align-items:center; }
 .datepicker-btn { width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border: none; cursor:pointer; background: var(--color-primary); box-shadow: 0 8px 20px rgba(12,63,110,0.12); }
-.datepicker-btn:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(12,63,110,0.16); }
+/* Hover effect removed */
 .datepicker-btn svg { width:14px; height:14px; fill: #fff; }
 .datepicker-btn[data-action="prev"] { position: absolute; left: 12px; top: 8px; }
 .datepicker-btn[data-action="next"] { position: absolute; right: 12px; top: 8px; }
@@ -1212,11 +1276,7 @@
     transition: all var(--transition-fast);
 }
 
-.pagination__btn:hover {
-    background: var(--color-bg-table-header);
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
+/* Hover effect removed */
 
 .pagination__btn--active {
     background: var(--color-primary);
