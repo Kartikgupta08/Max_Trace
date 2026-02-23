@@ -17,55 +17,54 @@ import Toast from '../components/toast.js';
 const Login = {
     render() {
         return `
-            <div class="login-page">
-                <img src="/Assets/maxvolt-logo.png.png" alt="MaxVolt Energy Logo" style="position: absolute; top: 32px; left: 48px; height: 100px; z-index: 10;" />
-                <div class="login-card">
-                    <div class="login-card__brand">
-                        <div class="login-card__logo">MT</div>
-                        <h1 class="login-card__title">MaxTrace</h1>
-                        <p class="login-card__subtitle">Battery Traceability & Manufacturing</p>
+        <div class="login-page">
+            <div class="login-header" style="width: 100vw; height: 56px; background: #1A2E5C; box-shadow: 0 2px 8px rgba(60,80,120,0.08); position: fixed; top: 0; left: 0; z-index: 20;"></div>
+            <div style="height: 56px;"></div>
+            <img src="/Assets/maxvolt-logo.png.png" alt="MaxVolt Energy Logo" style="position: absolute; top: 64px; left: 32px; height: 80px; z-index: 30;" />
+            <div class="login-card">
+                <div class="login-card__brand">
+                    <div class="login-card__logo">MT</div>
+                    <h1 class="login-card__title">MaxTrace</h1>
+                    <p class="login-card__subtitle">Battery Traceability & Manufacturing</p>
+                </div>
+                <form id="login-form" autocomplete="off">
+                    <div class="form-group">
+                        <label class="form-label form-label--required" for="login-username">Username</label>
+                        <input
+                            type="text"
+                            id="login-username"
+                            class="form-input"
+                            placeholder="Enter your username"
+                            required
+                            autofocus
+                        />
                     </div>
-
-                    <form id="login-form" autocomplete="off">
-                        <div class="form-group">
-                            <label class="form-label form-label--required" for="login-username">Username</label>
-                            <input
-                                type="text"
-                                id="login-username"
-                                class="form-input"
-                                placeholder="Enter your username"
-                                required
-                                autofocus
-                            >
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label form-label--required" for="login-password">Password</label>
-                            <input
-                                type="password"
-                                id="login-password"
-                                class="form-input"
-                                placeholder="Enter your password"
-                                required
-                            >
-                        </div>
-
-                        <div id="login-error" class="form-error" style="display:none; margin-bottom:16px; text-align:center;"></div>
-
-                        <button type="submit" id="btn-login" class="btn btn--primary btn--lg btn--full">
-                            Sign In
-                        </button>
-                    </form>
-
-                    <div style="text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--color-border-light);">
-                        <p class="text-xs text-muted">
-                            Factory Manufacturing System<br>
-                            For authorized personnel only
-                        </p>
+                    <div class="form-group">
+                        <label class="form-label form-label--required" for="login-password">Password</label>
+                        <input
+                            type="password"
+                            id="login-password"
+                            class="form-input"
+                            placeholder="Enter your password"
+                            required
+                        />
                     </div>
-
+                    <div id="login-error" class="form-error" style="display:none; margin-bottom:16px; text-align:center;"></div>
+                    <button type="submit" id="btn-login" class="btn btn--primary btn--lg btn--full">
+                        Sign In
+                    </button>
+                </form>
+                <div style="text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--color-border-light);">
+                    <p class="text-xs text-muted">
+                        Factory Manufacturing System<br/>
+                        For authorized personnel only
+                    </p>
                 </div>
             </div>
+        </div>
+        <div class="login-footer" style="width: 100vw; height: 48px; background: #1A2E5C; color: #fff; display: flex; align-items: center; justify-content: center; position: fixed; bottom: 0; left: 0; z-index: 20; font-size: 15px; letter-spacing: 0.02em;">
+            &copy; 2026 MaxVolt Energy. All rights reserved.
+        </div>
         `;
     },
 
