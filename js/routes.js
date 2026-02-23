@@ -129,30 +129,7 @@ const ROUTES = [
         icon: 'timeline',
         loader: () => import('./pages/admin/traceability.js')
     },
-    {
-        path: '#/admin/failed-batteries',
-        title: 'Failed / Rejected Batteries',
-        roles: ['ADMIN'],
-        section: 'Admin Panel',
-        icon: 'error_outline',
-        loader: () => import('./pages/admin/failedBatteries.js')
-    },
-    {
-        path: '#/admin/production-progress',
-        title: 'Production Progress',
-        roles: ['ADMIN'],
-        section: 'Admin Panel',
-        icon: 'trending_up',
-        loader: () => import('./pages/admin/productionProgress.js')
-    },
-    {
-        path: '#/admin/search',
-        title: 'Search',
-        roles: ['ADMIN'],
-        section: 'Admin Panel',
-        icon: 'search',
-        loader: () => import('./pages/admin/search.js')
-    }
+    
 ];
 
 /**
