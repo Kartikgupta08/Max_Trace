@@ -18,6 +18,7 @@ const Login = {
     render() {
         return `
             <div class="login-page">
+                <img src="/Assets/maxvolt-logo.png.png" alt="MaxVolt Energy Logo" style="position: absolute; top: 32px; left: 48px; height: 100px; z-index: 10;" />
                 <div class="login-card">
                     <div class="login-card__brand">
                         <div class="login-card__logo">MT</div>
@@ -63,11 +64,6 @@ const Login = {
                         </p>
                     </div>
 
-                    <div style="margin-top:16px; padding:12px 16px; background:var(--color-bg-secondary,#f1f5f9); border-radius:8px; font-size:12px; color:#475569;">
-                        <p style="font-weight:600; margin-bottom:6px; color:#1B3A5C;">Demo Credentials</p>
-                        <p style="margin:2px 0;"><strong>Admin:</strong>&nbsp; admin / admin123</p>
-                        <p style="margin:2px 0;"><strong>Operator:</strong>&nbsp; operator / operator123</p>
-                    </div>
                 </div>
             </div>
         `;
