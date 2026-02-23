@@ -66,7 +66,7 @@ const Login = {
         </div>
         <div class="login-footer" style="width: 100vw; height: 48px; background: #1A2E5C; color: #fff; display: flex; align-items: center; justify-content: center; position: fixed; bottom: 0; left: 0; z-index: 20; font-size: 15px; letter-spacing: 0.02em;">
             <div class="login-footer__line"></div>
-            &copy; 2026 MaxVolt Energy. All rights reserved.
+            &copy; 2026 MaxVolt Energy Industries Ltd. All rights reserved.
         </div>
         `;
     },

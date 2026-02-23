@@ -110,8 +110,9 @@ const Traceability = {
         // Set the date from and to fields to today for initial fetch
         let dateFromInput = document.getElementById('trace-date-from');
         let dateToInput = document.getElementById('trace-date-to');
-        if (dateFromInput) dateFromInput.value = todayStr;
-        if (dateToInput) dateToInput.value = todayStr;
+        // Do NOT set default date filters, so the query fetches the most recent batteries by default
+        if (dateFromInput) dateFromInput.value = '';
+        if (dateToInput) dateToInput.value = '';
         _fetchTraceData(currentPage);
 
         searchBtn.addEventListener('click', () => {
@@ -458,6 +459,7 @@ const Traceability = {
 
         // Note: Battery ID is an optional override — when provided we fetch by id and show full record(s).
         async function _fetchTraceData(page) {
+
             let dateFrom = document.getElementById('trace-date-from') ? document.getElementById('trace-date-from').value : '';
             let dateTo = document.getElementById('trace-date-to') ? document.getElementById('trace-date-to').value : '';
             const batteryId = (document.getElementById('trace-battery-id').value || '').trim();
@@ -489,12 +491,7 @@ const Traceability = {
                 // include status if supplied for more specific lookup
                 if (status) params.status = status;
             } else {
-                // if status is provided but both dates are empty, default dateFrom to today
-                if (status && !dateFrom && !dateTo) {
-                    const t = new Date();
-                    dateFrom = formatISO(t.getFullYear(), t.getMonth()+1, t.getDate());
-                }
-
+                // Always fetch the most recent 15 batteries if no filters are set
                 params.page = page;
                 params.page_size = 15;
                 if (dateFrom) params.date_from = dateFrom;
