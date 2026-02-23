@@ -29,7 +29,24 @@ const Traceability = {
                 <div class="filter-bar">
                     <div class="filter-bar__group">
                         <label class="filter-bar__label">Battery ID</label>
-                        <input type="text" id="trace-battery-id" class="filter-bar__input" placeholder="Enter Battery ID">
+                                                <div style="position: relative; width: 100%;">
+                                                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; height: 100%; pointer-events: none;">
+                                                                <!-- Medium, Centered Battery SVG Icon -->
+                                                                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                    <rect x="5" y="4" width="12" height="14" rx="2" fill="url(#battery-gradient)" stroke="#888" stroke-width="1.2"/>
+                                                                    <rect x="9" y="2.5" width="4" height="2" rx="1" fill="#B0BEC5" stroke="#888" stroke-width="0.7"/>
+                                                                    <rect x="10.25" y="8.5" width="1.5" height="4" rx="0.75" fill="#fff"/>
+                                                                    <rect x="10.25" y="14" width="1.5" height="1.5" rx="0.75" fill="#fff"/>
+                                                                    <defs>
+                                                                        <linearGradient id="battery-gradient" x1="5" y1="4" x2="17" y2="18" gradientUnits="userSpaceOnUse">
+                                                                            <stop stop-color="#B9F6CA"/>
+                                                                            <stop offset="1" stop-color="#B2EBF2"/>
+                                                                        </linearGradient>
+                                                                    </defs>
+                                                                </svg>
+                                                        </span>
+                                                        <input type="text" id="trace-battery-id" class="filter-bar__input" placeholder="Scan or Type Battery ID" style="padding-left: 38px; height: 44px; font-size: 1.08em;" />
+                                                </div>
                     </div>
                     <div class="filter-bar__group">
                         <label class="filter-bar__label">Date From</label>
