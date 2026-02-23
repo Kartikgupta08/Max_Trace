@@ -56,9 +56,7 @@ const CellInventory = {
                     <div class="filter-bar__group filter-bar__group--center">
                         <label class="filter-bar__label">Brand Name</label>
                         <select id="inv-model" class="filter-bar__input form-select">
-                            <option value="">All Brands</option>
-                            <option value="INR18650-25R">INR18650-25R</option>
-                            <option value="INR18650-30Q">INR18650-30Q</option>
+                            <option value="">All</option>
                         </select>
                     </div>
                     <div class="filter-bar__group">

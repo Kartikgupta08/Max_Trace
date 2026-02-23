@@ -1,3 +1,55 @@
+
+/* Modern Card Dropdown for Welding Type */
+.welding-type-select, select#welding-type {
+    border: none;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(30,58,138,0.10);
+    font-size: 1.08rem;
+    color: #1A2E5C;
+    padding: 14px 18px;
+    width: 100%;
+    appearance: none;
+    transition: box-shadow 0.2s, border 0.2s;
+    margin-bottom: 0.5rem;
+}
+.welding-type-select:focus, select#welding-type:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #3b82f6, 0 4px 24px rgba(30,58,138,0.12);
+}
+.welding-type-select option, select#welding-type option {
+    background: #fff;
+    color: #1A2E5C;
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 1.08rem;
+}
+/* For open dropdown (browser support varies) */
+select#welding-type:focus-visible {
+    outline: none;
+}
+/* Modern Welding Type Dropdown */
+select#welding-type, .welding-type-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #3b82f6;
+    border-radius: 8px;
+    background: #fff url("data:image/svg+xml,%3Csvg fill='none' stroke='%233b82f6' stroke-width='2' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 16px center/20px 20px;
+    font-size: 1.08rem;
+    color: #1A2E5C;
+    appearance: none;
+    transition: border 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.06);
+}
+select#welding-type:focus, .welding-type-select:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 2px #93c5fd;
+}
+select#welding-type option, .welding-type-select option {
+    color: #1A2E5C;
+    font-size: 1.05rem;
+}
 /* Animated logo effect */
 .login-page img[alt="MaxVolt Energy Logo"] {
     animation: logoPopIn 1.2s cubic-bezier(0.4, 0.2, 0.2, 1);
@@ -57,7 +109,8 @@
 /* Modern login page animation and effects */
 .login-page {
     min-height: 100vh;
-    background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
+    background: url('../Assets/battery-bg.png') center center no-repeat, linear-gradient(135deg, #0a1833 0%, #1a2e5c 100%);
+    background-size: cover, cover;
     display: flex;
     align-items: center;
     justify-content: center;

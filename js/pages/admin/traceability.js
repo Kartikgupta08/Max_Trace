@@ -59,7 +59,7 @@ const Traceability = {
                     <div class="filter-bar__group">
                         <label class="filter-bar__label">Status</label>
                         <select id="trace-status-filter" class="filter-bar__input form-select">
-                            <option value="">All Statuses</option>
+                            <option value="">All</option>
                             <option value="registered">Registered</option>
                             <option value="testing">Testing</option>
                             <option value="tested">Tested</option>
