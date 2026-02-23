@@ -88,11 +88,22 @@ const CellInventory = {
     async init() {
 
             let currentPage = 1;
+            // On page load, set date from and to to today for initial fetch
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const todayStr = `${yyyy}-${mm}-${dd}`;
+            let dateFromInput = document.getElementById('inv-date-from');
+            let dateToInput = document.getElementById('inv-date-to');
+            if (dateFromInput) dateFromInput.value = todayStr;
+            if (dateToInput) dateToInput.value = todayStr;
+            _fetchInventory(currentPage);
 
             const searchBtn = document.getElementById('btn-inv-search');
             const cellInput = document.getElementById('inv-cell-id');
-            const dateFromInput = document.getElementById('inv-date-from');
-            const dateToInput = document.getElementById('inv-date-to');
+            dateFromInput = document.getElementById('inv-date-from');
+            dateToInput = document.getElementById('inv-date-to');
             const statusSelect = document.getElementById('inv-status');
             const modelSelect = document.getElementById('inv-model');
 

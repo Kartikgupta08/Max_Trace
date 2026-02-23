@@ -101,11 +101,23 @@ const Traceability = {
         const statusInput = document.getElementById('trace-status-filter');
         let currentPage = 1;
 
+        // Automatically fetch only today's batteries on page load
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        // Set the date from and to fields to today for initial fetch
+        let dateFromInput = document.getElementById('trace-date-from');
+        let dateToInput = document.getElementById('trace-date-to');
+        if (dateFromInput) dateFromInput.value = todayStr;
+        if (dateToInput) dateToInput.value = todayStr;
+        _fetchTraceData(currentPage);
+
         searchBtn.addEventListener('click', () => {
             currentPage = 1;
             _fetchTraceData(currentPage);
         });
-        
 
         // Allow Enter key to trigger search when typing battery id
         batteryInput.addEventListener('keydown', (e) => {
@@ -278,8 +290,8 @@ const Traceability = {
         }
 
         // Custom datepicker popup attached to the date inputs (from / to)
-        const dateFromInput = document.getElementById('trace-date-from');
-        const dateToInput = document.getElementById('trace-date-to');
+        dateFromInput = document.getElementById('trace-date-from');
+        dateToInput = document.getElementById('trace-date-to');
         let activeDateInput = null;
         let datepickerEl = null;
         let dpState = { year: null, month: null, selected: null };
@@ -512,6 +524,13 @@ const Traceability = {
                     // single object result — wrap in array
                     items = [result.data];
                 }
+
+                // Sort by created_at descending (most recent first)
+                items.sort((a, b) => {
+                    const dateA = new Date(a.created_at || a.createdAt || 0);
+                    const dateB = new Date(b.created_at || b.createdAt || 0);
+                    return dateB - dateA;
+                });
 
                 _renderResults(items);
 
