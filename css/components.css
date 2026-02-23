@@ -3,6 +3,31 @@
     animation: logoPopIn 1.2s cubic-bezier(0.4, 0.2, 0.2, 1);
     filter: drop-shadow(0 2px 8px rgba(60,80,120,0.12));
 }
+/* Moving line animation for login header/footer */
+.login-header__line, .login-footer__line {
+    position: absolute;
+    left: 50%;
+    width: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #fff 0%, #1A2E5C 50%, #fff 100%);
+    transform: translateX(-50%);
+    z-index: 21;
+    border-radius: 2px;
+    animation: lineExpand 1.2s cubic-bezier(0.4, 0.2, 0.2, 1) forwards;
+}
+
+.login-header__line {
+    top: 100%;
+}
+.login-footer__line {
+    top: -6px;
+}
+
+@keyframes lineExpand {
+    0% { width: 0; opacity: 0.7; }
+    60% { width: 40vw; opacity: 1; }
+    100% { width: 90vw; opacity: 1; }
+}
 
 @keyframes logoPopIn {
     0% { opacity: 0; transform: scale(0.85) translateY(-20px); }

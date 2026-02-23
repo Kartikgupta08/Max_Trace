@@ -18,7 +18,9 @@ const Login = {
     render() {
         return `
         <div class="login-page">
-            <div class="login-header" style="width: 100vw; height: 56px; background: #1A2E5C; box-shadow: 0 2px 8px rgba(60,80,120,0.08); position: fixed; top: 0; left: 0; z-index: 20;"></div>
+            <div class="login-header" style="width: 100vw; height: 56px; background: #1A2E5C; box-shadow: 0 2px 8px rgba(60,80,120,0.08); position: fixed; top: 0; left: 0; z-index: 20;">
+                <div class="login-header__line"></div>
+            </div>
             <div style="height: 56px;"></div>
             <img src="/Assets/maxvolt-logo.png.png" alt="MaxVolt Energy Logo" style="position: absolute; top: 64px; left: 32px; height: 80px; z-index: 30;" />
             <div class="login-card">
@@ -63,6 +65,7 @@ const Login = {
             </div>
         </div>
         <div class="login-footer" style="width: 100vw; height: 48px; background: #1A2E5C; color: #fff; display: flex; align-items: center; justify-content: center; position: fixed; bottom: 0; left: 0; z-index: 20; font-size: 15px; letter-spacing: 0.02em;">
+            <div class="login-footer__line"></div>
             &copy; 2026 MaxVolt Energy. All rights reserved.
         </div>
         `;
