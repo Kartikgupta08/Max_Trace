@@ -1,3 +1,154 @@
+/* Custom login page layout */
+.login-page--custom {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100vw;
+    position: relative;
+    background: none;
+}
+
+.login-custom-container {
+    display: flex;
+    flex: 1 1 auto;
+    height: calc(100vh - 56px - 48px);
+    margin-top: 56px;
+    margin-bottom: 48px;
+}
+
+.login-custom-left {
+    flex: 0 0 480px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-left: 4vw;
+    z-index: 2;
+}
+
+.login-custom-right {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+    z-index: 2;
+    overflow: hidden;
+}
+
+.login-custom-bg {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: url('/Assets/display.jpeg') center center/cover no-repeat;
+    z-index: 1;
+    filter: brightness(1.1) saturate(1.2);
+}
+
+.login-custom-logo {
+    position: relative;
+    margin: 32px auto 24px auto;
+    display: block;
+    max-width: 220px;
+    max-height: 90px;
+    z-index: 2;
+}
+
+.login-custom-buttons {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    margin-top: 18px;
+}
+
+.custom-move-btn {
+    background: rgba(255,255,255,0.85);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px 0 rgba(30, 144, 255, 0.18), 0 1.5px 0 0 #b3e5fc;
+    padding: 22px 48px;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #0a2e4d;
+    min-width: 320px;
+    max-width: 420px;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(.4,0,.2,1), box-shadow 0.25s;
+    outline: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    user-select: none;
+}
+.custom-move-btn:active, .custom-move-btn:focus {
+    box-shadow: 0 8px 32px 0 rgba(30, 144, 255, 0.28), 0 2px 0 0 #81d4fa;
+}
+.custom-move-btn:hover {
+    transform: translateX(18px) scale(1.03);
+    box-shadow: 0 8px 32px 0 rgba(30, 144, 255, 0.28), 0 2px 0 0 #81d4fa;
+}
+.custom-move-btn:active {
+    transform: translateX(-18px) scale(0.98);
+}
+.custom-move-btn .icon {
+    font-size: 1.5em;
+    margin-right: 10px;
+}
+
+
+
+
+
+/* Login split layout: box left, logo right */
+.login-page--split {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100vw;
+    position: relative;
+    background: none;
+}
+
+.login-split-container {
+    display: flex;
+    flex: 1 1 auto;
+    height: calc(100vh - 56px - 48px);
+    margin-top: 56px;
+    margin-bottom: 48px;
+}
+
+.login-split-left {
+    flex: 0 0 480px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 6vw;
+    z-index: 2;
+}
+
+.login-split-right {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+}
+
+.login-logo-center-right {
+    max-height: 180px;
+    max-width: 340px;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
 /* Prevent scrolling on login page */
 /* Prevent scrolling on login page */
 .app-shell--auth {
