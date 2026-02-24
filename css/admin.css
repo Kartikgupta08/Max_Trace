@@ -47,8 +47,46 @@
 
 .role-checkbox-menu input[type="checkbox"] {
     margin-right: 8px;
-    accent-color: #007bff;
+
+
+
+    
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 2px solid #b0b0b0;
+    background: #f8f9fa;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    vertical-align: middle;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    cursor: pointer;
+    position: relative;
 }
+
+.role-checkbox-menu input[type="checkbox"]:checked {
+    background: #007bff;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px #e3f0ff;
+}
+
+.role-checkbox-menu input[type="checkbox"]:checked::after {
+    content: '';
+    display: block;
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+}
+
+
+
+
 /* User Management Page Styles */
 .user-management-page {
     padding: var(--content-padding);
