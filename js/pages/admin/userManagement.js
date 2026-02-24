@@ -1,3 +1,4 @@
+const API_BASE = 'http://localhost:8000';
 /**
  * userManagement.js — Admin User Management Page
  * Allows admin to view, add, and manage users.
@@ -45,19 +46,29 @@ const UserManagement = {
     users: [],
 
     async fetchUsers() {
-        const res = await fetch('/api/users');
+        const res = await fetch(`${API_BASE}/users/`);
         if (!res.ok) return [];
         return await res.json();
     },
 
     async addUser(user) {
-        const res = await fetch('/api/users', {
+        const res = await fetch(`${API_BASE}/users/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(user)
         });
-        if (!res.ok) throw new Error('Failed to add user');
-        return await res.json();
+        if (res.status === 201) {
+            return await res.json();
+        } else {
+            let errMsg = 'Failed to add user';
+            try {
+                const err = await res.json();
+                if (err.detail && Array.isArray(err.detail)) {
+                    errMsg += ': ' + err.detail.map(d => d.msg).join('; ');
+                }
+            } catch {}
+            throw new Error(errMsg);
+        }
     },
 
     async init() {
@@ -109,9 +120,10 @@ const UserManagement = {
             }
             const user = {
                 username: form.username.value.trim(),
-                password: form.password.value,
                 full_name: form.full_name.value.trim(),
-                assigned_roles: selectedRoles
+                assigned_roles: selectedRoles,
+                is_active: true,
+                password: form.password.value
             };
             try {
                 const newUser = await this.addUser(user);
@@ -122,12 +134,47 @@ const UserManagement = {
                 roleMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
                 roleBtn.textContent = 'Select Role(s)';
                 selectedRoles = [];
+                UserManagement.showToast('User added successfully.', 'success');
             } catch (err) {
                 alert('Failed to add user: ' + err.message);
             }
         });
+
     },
 
+    showToast(message, type = 'success') {
+        // Remove any existing toast
+        const oldToast = document.getElementById('custom-toast');
+        if (oldToast) oldToast.remove();
+        // Create toast container
+        const toast = document.createElement('div');
+        toast.id = 'custom-toast';
+        toast.style.position = 'fixed';
+        toast.style.top = '32px';
+        toast.style.right = '32px';
+        toast.style.background = '#fff';
+        toast.style.borderRadius = '12px';
+        toast.style.boxShadow = '0 4px 24px rgba(0,0,0,0.08)';
+        toast.style.padding = '20px 32px 20px 20px';
+        toast.style.display = 'flex';
+        toast.style.alignItems = 'flex-start';
+        toast.style.minWidth = '320px';
+        toast.style.zIndex = 9999;
+        toast.style.borderLeft = type === 'success' ? '4px solid #22c55e' : '4px solid #dc3545';
+        toast.innerHTML = `
+            <div style="margin-right:16px;margin-top:2px;">
+                ${type === 'success' ? '<span style=\'color:#22c55e;font-size:22px;\'>&#10003;</span>' : '<span style=\'color:#dc3545;font-size:22px;\'>&#10007;</span>'}
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:600;font-size:17px;color:#222;">${type === 'success' ? 'Success' : 'Error'}</div>
+                <div style="color:#6b7280;font-size:15px;margin-top:2px;">${message}</div>
+            </div>
+            <button id="close-toast-btn" style="background:none;border:none;font-size:20px;color:#888;cursor:pointer;margin-left:16px;">&times;</button>
+        `;
+        document.body.appendChild(toast);
+        document.getElementById('close-toast-btn').onclick = () => toast.remove();
+        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3500);
+    },
     renderUserList() {
         const userList = document.getElementById('user-list');
         if (!userList) return;
@@ -142,19 +189,119 @@ const UserManagement = {
                         <th>Username</th>
                         <th>Full Name</th>
                         <th>Roles</th>
+                        <th>Last Login</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${this.users.map(u => `
-                        <tr>
+                        <tr data-user-id="${u.id}">
                             <td>${u.username}</td>
                             <td>${u.full_name}</td>
-                            <td>${Array.isArray(u.roles) ? u.roles.join(', ') : u.roles}</td>
+                            <td>${Array.isArray(u.assigned_roles) ? u.assigned_roles.join(', ') : u.assigned_roles}</td>
+                            <td>${u.last_login ? new Date(u.last_login).toLocaleString() : '-'}</td>
+                            <td>${u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
+                            <td>
+                                <button class="edit-user-btn" title="Edit" style="background:none;border:none;cursor:pointer;font-size:18px;vertical-align:middle;">
+                                    <span style="color:#007bff;">✏️</span>
+                                </button>
+                                <button class="delete-user-btn" title="Delete" style="background:none;border:none;cursor:pointer;font-size:18px;vertical-align:middle;">
+                                    <span style="color:#dc3545;">🗑️</span>
+                                </button>
+                            </td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
         `;
+
+        // Add event listeners for edit and delete
+        userList.querySelectorAll('.delete-user-btn').forEach((btn, idx) => {
+            btn.onclick = (e) => {
+                e.preventDefault();
+                const tr = btn.closest('tr');
+                const userId = tr.getAttribute('data-user-id');
+                if (confirm('Delete this user?')) {
+                    UserManagement.deleteUser(userId);
+                }
+            };
+        });
+        userList.querySelectorAll('.edit-user-btn').forEach((btn, idx) => {
+            btn.onclick = (e) => {
+                e.preventDefault();
+                const tr = btn.closest('tr');
+                const userId = tr.getAttribute('data-user-id');
+                UserManagement.showEditUserForm(userId);
+            };
+        });
+    },
+
+    async deleteUser(userId) {
+        // Call backend to delete user
+        try {
+            await fetch(`${API_BASE}/users/${userId}`, { method: 'DELETE' });
+            this.users = this.users.filter(u => String(u.id) !== String(userId));
+            this.renderUserList();
+        } catch (err) {
+            alert('Failed to delete user: ' + err.message);
+        }
+    },
+
+    showEditUserForm(userId) {
+        const user = this.users.find(u => String(u.id) === String(userId));
+        if (!user) return;
+        let editForm = document.getElementById('edit-user-form');
+        if (editForm) editForm.remove();
+        const container = document.createElement('div');
+        container.id = 'edit-user-form';
+        container.style.background = '#fff';
+        container.style.border = '1px solid #ccc';
+        container.style.borderRadius = '8px';
+        container.style.padding = '24px';
+        container.style.margin = '24px auto';
+        container.style.maxWidth = '480px';
+        container.style.boxShadow = '0 4px 24px rgba(0,0,0,0.08)';
+        container.innerHTML = `
+            <h2 style="margin-top:0;">Edit User</h2>
+            <form id="edit-user-detail-form">
+                <label>Username:<input type="text" name="username" value="${user.username}" required class="form-input" /></label><br><br>
+                <label>Full Name:<input type="text" name="full_name" value="${user.full_name}" required class="form-input" /></label><br><br>
+                <label>Roles:<input type="text" name="assigned_roles" value="${user.assigned_roles.join(', ')}" required class="form-input" /></label><br><br>
+                <label>Active:<input type="checkbox" name="is_active" ${user.is_active ? 'checked' : ''} /></label><br><br>
+                <button type="submit" class="btn btn--primary">Save</button>
+                <button type="button" id="cancel-edit-user" class="btn">Cancel</button>
+            </form>
+        `;
+        document.body.appendChild(container);
+        document.getElementById('cancel-edit-user').onclick = () => {
+            container.remove();
+        };
+        document.getElementById('edit-user-detail-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const updatedUser = {
+                ...user,
+                username: formData.get('username'),
+                full_name: formData.get('full_name'),
+                assigned_roles: formData.get('assigned_roles').split(',').map(r => r.trim()),
+                is_active: formData.get('is_active') === 'on',
+            };
+            try {
+                await fetch(`${API_BASE}/users/${user.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedUser)
+                });
+                // Update local user
+                const idx = UserManagement.users.findIndex(u => String(u.id) === String(user.id));
+                if (idx !== -1) UserManagement.users[idx] = updatedUser;
+                UserManagement.renderUserList();
+                container.remove();
+            } catch (err) {
+                alert('Failed to update user: ' + err.message);
+            }
+        };
     }
 };
 
