@@ -1,3 +1,54 @@
+/* Role select button and dropdown styles */
+.role-select-group {
+    position: relative;
+    display: inline-block;
+}
+
+#role-select-btn.form-input {
+    width: 320px;
+    text-align: left;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 10px 12px;
+    transition: border-color 0.2s;
+}
+
+#role-select-btn.form-input:focus, #role-select-btn.form-input:active {
+    border-color: #007bff;
+    outline: none;
+}
+
+.role-checkbox-menu {
+    display: none;
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    z-index: 10;
+    padding: 10px 16px 10px 10px;
+    min-width: 320px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    margin-top: 2px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.role-checkbox-menu label {
+    display: block;
+    margin-bottom: 0px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.role-checkbox-menu input[type="checkbox"] {
+    margin-right: 8px;
+    accent-color: #007bff;
+}
 /* User Management Page Styles */
 .user-management-page {
     padding: var(--content-padding);

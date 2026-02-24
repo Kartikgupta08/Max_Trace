@@ -123,20 +123,20 @@ const ROUTES = [
     },
 
     {
-        path: '#/admin/user-management',
-        title: 'User Management',
-        roles: ['ADMIN'],
-        section: 'Admin Panel',
-        icon: 'manage_accounts',
-        loader: () => import('./pages/admin/userManagement.js')
-    },
-    {
         path: '#/admin/traceability',
         title: 'Battery Traceability',
         roles: ['ADMIN'],
         section: 'Admin Panel',
         icon: 'timeline',
         loader: () => import('./pages/admin/traceability.js')
+    },
+    {
+        path: '#/admin/user-management',
+        title: 'User Management',
+        roles: ['ADMIN'],
+        section: 'Admin Panel',
+        icon: 'manage_accounts',
+        loader: () => import('./pages/admin/userManagement.js')
     },
     
 ];

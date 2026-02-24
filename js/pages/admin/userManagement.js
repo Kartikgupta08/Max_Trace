@@ -16,19 +16,21 @@ const UserManagement = {
                         <input type="text" id="username" class="form-input" placeholder="Username" required />
                         <input type="password" id="password" class="form-input" placeholder="Password" required />
                         <input type="text" id="full_name" class="form-input" placeholder="Full Name" required />
-                        <select id="role" class="form-input" required>
-                            <option value="">Select Role</option>
-                            <option value="admin">Admin</option>
-                            <option value="Cell Registeration">Cell Registeration</option>
-                            <option value="Cell Grading">Cell Grading</option>
-                            <option value="Cell Sorting">Cell Sorting</option>
-                            <option value="Assembly and Mapping">Assembly and Mapping</option>
-                            <option value="Welding">Welding</option>
-                            <option value="BMS Mounting">BMS Mounting</option>
-                            <option value="Pack Testing">Pack Testing</option>
-                            <option value="PDI Inspection">PDI Inspection</option>
-                            <option value="Dispatch">Dispatch</option>
-                        </select>
+                        <div class="role-select-group" style="position:relative;">
+                            <button type="button" id="role-select-btn" class="form-input" style="width:320px; text-align:left; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">Select Role(s)</button>
+                            <div id="role-checkbox-menu" class="role-checkbox-menu" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; z-index:10; padding:10px; min-width:320px;">
+                                <label><input type="checkbox" value="admin"> Admin</label><br>
+                                <label><input type="checkbox" value="Cell Registeration"> Cell Registeration</label><br>
+                                <label><input type="checkbox" value="Cell Grading"> Cell Grading</label><br>
+                                <label><input type="checkbox" value="Cell Sorting"> Cell Sorting</label><br>
+                                <label><input type="checkbox" value="Assembly and Mapping"> Assembly and Mapping</label><br>
+                                <label><input type="checkbox" value="Welding"> Welding</label><br>
+                                <label><input type="checkbox" value="BMS Mounting"> BMS Mounting</label><br>
+                                <label><input type="checkbox" value="Pack Testing"> Pack Testing</label><br>
+                                <label><input type="checkbox" value="PDI Inspection"> PDI Inspection</label><br>
+                                <label><input type="checkbox" value="Dispatch"> Dispatch</label>
+                            </div>
+                        </div>
                         <button type="submit" class="btn btn--primary">Add User</button>
                     </div>
                 </form>
@@ -42,22 +44,88 @@ const UserManagement = {
 
     users: [],
 
-    init() {
+    async fetchUsers() {
+        const res = await fetch('/api/users');
+        if (!res.ok) return [];
+        return await res.json();
+    },
+
+    async addUser(user) {
+        const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user)
+        });
+        if (!res.ok) throw new Error('Failed to add user');
+        return await res.json();
+    },
+
+    async init() {
         const form = document.getElementById('add-user-form');
         const userList = document.getElementById('user-list');
-        form.addEventListener('submit', (e) => {
+        // Fetch users from backend
+        this.users = await this.fetchUsers();
+        this.renderUserList();
+
+        // Role select button logic
+        const roleBtn = document.getElementById('role-select-btn');
+        const roleMenu = document.getElementById('role-checkbox-menu');
+        let selectedRoles = [];
+
+        roleBtn.addEventListener('click', (e) => {
             e.preventDefault();
+            roleMenu.style.display = roleMenu.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Hide menu when clicking outside
+        document.addEventListener('mousedown', (e) => {
+            if (!roleMenu.contains(e.target) && e.target !== roleBtn) {
+                roleMenu.style.display = 'none';
+            }
+        });
+
+        // Update button text with selected roles (show only first, truncate if needed)
+        roleMenu.addEventListener('change', () => {
+            selectedRoles = Array.from(roleMenu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+            if (selectedRoles.length === 0) {
+                roleBtn.textContent = 'Select Role(s)';
+            } else {
+                // Show only the first selected role, truncate if too long
+                let firstRole = selectedRoles[0];
+                if (firstRole.length > 30) {
+                    firstRole = firstRole.slice(0, 27) + '...';
+                }
+                roleBtn.textContent = firstRole;
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            // Get selected roles as array
+            selectedRoles = Array.from(roleMenu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+            if (selectedRoles.length === 0) {
+                alert('Please select at least one role.');
+                return;
+            }
             const user = {
                 username: form.username.value.trim(),
                 password: form.password.value,
                 full_name: form.full_name.value.trim(),
-                role: form.role.value
+                assigned_roles: selectedRoles
             };
-            UserManagement.users.push(user);
-            UserManagement.renderUserList();
-            form.reset();
+            try {
+                const newUser = await this.addUser(user);
+                this.users.push(newUser);
+                this.renderUserList();
+                form.reset();
+                // Reset role selection
+                roleMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                roleBtn.textContent = 'Select Role(s)';
+                selectedRoles = [];
+            } catch (err) {
+                alert('Failed to add user: ' + err.message);
+            }
         });
-        this.renderUserList();
     },
 
     renderUserList() {
@@ -73,7 +141,7 @@ const UserManagement = {
                     <tr>
                         <th>Username</th>
                         <th>Full Name</th>
-                        <th>Role</th>
+                        <th>Roles</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -81,7 +149,7 @@ const UserManagement = {
                         <tr>
                             <td>${u.username}</td>
                             <td>${u.full_name}</td>
-                            <td>${u.role}</td>
+                            <td>${Array.isArray(u.roles) ? u.roles.join(', ') : u.roles}</td>
                         </tr>
                     `).join('')}
                 </tbody>
