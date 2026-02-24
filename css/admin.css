@@ -1,3 +1,73 @@
+/* User Management Page Styles */
+.user-management-page {
+    padding: var(--content-padding);
+    background: var(--color-bg-body);
+    min-height: 100vh;
+}
+
+.user-management__form-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--space-8) var(--space-6);
+    margin-bottom: var(--space-8);
+    max-width: 900px;
+}
+
+.user-form__row {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.user-form__row .form-input {
+    min-width: 180px;
+    flex: 1 1 0;
+}
+
+.user-management__list-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-8) var(--space-6);
+    max-width: 900px;
+}
+
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--space-2);
+}
+.user-table th, .user-table td {
+    padding: var(--space-3) var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+}
+.user-table th {
+    background: var(--color-bg-table-header);
+    color: var(--color-text-secondary);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    font-size: var(--text-xs);
+    letter-spacing: 1px;
+}
+.user-table tr:last-child td {
+    border-bottom: none;
+}
+.user-table td {
+    font-size: var(--text-sm);
+}
+.user-table {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.user-form__row .btn {
+    min-width: 120px;
+}
 /**
  * admin.css — Admin Panel Page Specific Styles
  * 
