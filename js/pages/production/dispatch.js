@@ -137,19 +137,24 @@ const Dispatch = {
             btn.disabled = true;
             btn.innerHTML = '<span class="btn__spinner"></span> Dispatching...';
 
-            const result = await API.post('/battery/dispatch', {
-                battery_id: batteryId,
-                customer_name: customerName,
-                invoice_id: invoiceId,
-                invoice_date: invoiceDate
-            });
+            let result;
+            try {
+                result = await API.post('/dispatch/submit', {
+                    battery_id: batteryId,
+                    customer_name: customerName,
+                    invoice_id: invoiceId,
+                    invoice_date: invoiceDate
+                });
+            } catch (err) {
+                result = { success: false, error: 'NETWORK_ERROR', message: err?.message || 'Network error' };
+            }
 
             isSubmitting = false;
             btn.disabled = false;
             btn.textContent = 'Confirm Dispatch';
 
-            if (result.success) {
-                Toast.success(`Battery ${batteryId} dispatched successfully.`);
+            if (result && (result.success || typeof result.data === 'string')) {
+                Toast.success('Dispatch registered successfully.');
                 resultEl.style.display = 'block';
                 resultEl.innerHTML = `
                     <div class="confirmation confirmation--success">
@@ -170,7 +175,7 @@ const Dispatch = {
                     resultEl.style.display = 'none';
                     batteryInput.focus();
                 }, 3000);
-            } else if (result.error === 'VALIDATION_ERROR') {
+            } else if (result && result.error === 'VALIDATION_ERROR') {
                 resultEl.style.display = 'block';
                 resultEl.innerHTML = `
                     <div class="confirmation confirmation--error">
@@ -179,6 +184,8 @@ const Dispatch = {
                         <div class="confirmation__detail">${_esc(typeof result.detail === 'string' ? result.detail : JSON.stringify(result.detail))}</div>
                     </div>
                 `;
+            } else {
+                Toast.error('Dispatch failed. Please try again.');
             }
         });
 

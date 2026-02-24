@@ -202,13 +202,18 @@ const UserManagement = {
                             <td>${Array.isArray(u.assigned_roles) ? u.assigned_roles.join(', ') : u.assigned_roles}</td>
                             <td>${u.last_login ? new Date(u.last_login).toLocaleString() : '-'}</td>
                             <td>${u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
-                            <td>
-                                <button class="edit-user-btn" title="Edit" style="background:none;border:none;cursor:pointer;font-size:18px;vertical-align:middle;">
-                                    <span style="color:#007bff;">✏️</span>
-                                </button>
-                                <button class="delete-user-btn" title="Delete" style="background:none;border:none;cursor:pointer;font-size:18px;vertical-align:middle;">
-                                    <span style="color:#dc3545;">🗑️</span>
-                                </button>
+                            <td style="display:flex;flex-direction:row;gap:18px;align-items:center;justify-content:center;">
+                                    <button class="edit-user-btn" title="Edit" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M3 17.25V21h3.75l11.06-11.06-3.75-3.75L3 17.25z" fill="#16213E"/>
+                                            <path d="M20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="#16213E"/>
+                                        </svg>
+                                    </button>
+                                    <button class="delete-user-btn" title="Delete" style="background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="#16213E"/>
+                                        </svg>
+                                    </button>
                             </td>
                         </tr>
                     `).join('')}
