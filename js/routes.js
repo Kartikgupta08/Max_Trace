@@ -1,145 +1,146 @@
 /**
  * routes.js — Central Route Registry
- * 
- * Every route in the application is registered here with:
- *   - path (hash-based)
- *   - page module loader (dynamic import)
- *   - allowed roles (empty = public)
- *   - page title
- *   - sidebar section grouping
- * 
- * This is the single source of truth for navigation and access control.
+ *
+ * Role convention:
+ *   roles: []            → public (login, unauthorized)
+ *   roles: ['admin', …]  → admin is always first; production routes also
+ *                          list their specific operator role string so that
+ *                          both admins AND the relevant operators can access them.
+ *
+ * Auth.isAuthorized() does an array overlap check, so listing 'admin'
+ * here means an admin user (whose assigned_roles includes 'admin') will
+ * always pass the check — even without the isAdmin() bypass.
  */
 
 const ROUTES = [
-    // ─── Public Routes ──────────────────────────────────────────────
+    // ─── Public Routes ────────────────────────────────────────────────────────
     {
-        path: '#/login',
-        title: 'Login',
-        roles: [],                  // Public
+        path:    '#/login',
+        title:   'Login',
+        roles:   [],
         section: null,
-        icon: null,
-        loader: () => import('./pages/login.js')
+        icon:    null,
+        loader:  () => import('./pages/login.js'),
     },
     {
-        path: '#/unauthorized',
-        title: 'Unauthorized',
-        roles: [],                  // Public
+        path:    '#/unauthorized',
+        title:   'Access Denied',
+        roles:   [],
         section: null,
-        icon: null,
-        loader: () => import('./pages/unauthorized.js')
+        icon:    null,
+        loader:  () => import('./pages/unauthorized.js'),
     },
 
-    // ─── Production Routes (OPERATOR + ADMIN) ──────────────────────
+    // ─── Production Routes ────────────────────────────────────────────────────
     {
-        path: '#/production/cell-registration',
-        title: 'Cell Registration',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/cell-registration',
+        title:   'Cell Registration',
+        roles:   ['admin', 'Cell Registration'],
         section: 'Production',
-        icon: 'battery_std',
-        loader: () => import('./pages/production/cellRegistration.js')
+        icon:    'battery_std',
+        loader:  () => import('./pages/production/cellRegistration.js'),
     },
     {
-        path: '#/production/cell-grading',
-        title: 'Cell Grading',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/cell-grading',
+        title:   'Cell Grading',
+        roles:   ['admin', 'Cell Grading'],
         section: 'Production',
-        icon: 'speed',
-        loader: () => import('./pages/production/cellGrading.js')
+        icon:    'speed',
+        loader:  () => import('./pages/production/cellGrading.js'),
     },
     {
-        path: '#/production/cell-sorting',
-        title: 'Cell Sorting',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/cell-sorting',
+        title:   'Cell Sorting',
+        roles:   ['admin', 'Cell Sorting'],
         section: 'Production',
-        icon: 'sort',
-        loader: () => import('./pages/production/cellSorting.js')
+        icon:    'sort',
+        loader:  () => import('./pages/production/cellSorting.js'),
     },
     {
-        path: '#/production/battery-assembly',
-        title: 'Assembly & Mapping',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/battery-assembly',
+        title:   'Assembly & Mapping',
+        roles:   ['admin', 'Assembly and Mapping'],
         section: 'Production',
-        icon: 'build',
-        loader: () => import('./pages/production/batteryAssembly.js')
+        icon:    'build',
+        loader:  () => import('./pages/production/batteryAssembly.js'),
     },
     {
-        path: '#/production/welding',
-        title: 'Welding',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/welding',
+        title:   'Welding',
+        roles:   ['admin', 'Welding'],
         section: 'Production',
-        icon: 'bolt',
-        loader: () => import('./pages/production/welding.js')
+        icon:    'bolt',
+        loader:  () => import('./pages/production/welding.js'),
     },
     {
-        path: '#/production/bms-mounting',
-        title: 'BMS Mounting',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/bms-mounting',
+        title:   'BMS Mounting',
+        roles:   ['admin', 'BMS Mounting'],
         section: 'Production',
-        icon: 'memory',
-        loader: () => import('./pages/production/bmsMounting.js')
+        icon:    'memory',
+        loader:  () => import('./pages/production/bmsMounting.js'),
     },
     {
-        path: '#/production/pack-grading',
-        title: 'Pack Testing',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/pack-grading',
+        title:   'Pack Testing',
+        roles:   ['admin', 'Pack Testing'],
         section: 'Production',
-        icon: 'assessment',
-        loader: () => import('./pages/production/packGrading.js')
+        icon:    'assessment',
+        loader:  () => import('./pages/production/packGrading.js'),
     },
     {
-        path: '#/production/pdi-inspection',
-        title: 'PDI Inspection',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/pdi-inspection',
+        title:   'PDI Inspection',
+        roles:   ['admin', 'PDI Inspection'],
         section: 'Production',
-        icon: 'fact_check',
-        loader: () => import('./pages/production/pdiInspection.js')
+        icon:    'fact_check',
+        loader:  () => import('./pages/production/pdiInspection.js'),
     },
     {
-        path: '#/production/dispatch',
-        title: 'Dispatch',
-        roles: ['OPERATOR', 'ADMIN'],
+        path:    '#/production/dispatch',
+        title:   'Dispatch',
+        roles:   ['admin', 'Dispatch'],
         section: 'Production',
-        icon: 'local_shipping',
-        loader: () => import('./pages/production/dispatch.js')
+        icon:    'local_shipping',
+        loader:  () => import('./pages/production/dispatch.js'),
     },
 
-    // ─── Admin Routes (ADMIN ONLY) ──────────────────────────────────
+    // ─── Admin Routes ─────────────────────────────────────────────────────────
     {
-        path: '#/admin/dashboard',
-        title: 'Dashboard',
-        roles: ['ADMIN'],
+        path:    '#/admin/dashboard',
+        title:   'Dashboard',
+        roles:   ['admin'],
         section: 'Admin Panel',
-        icon: 'dashboard',
-        loader: () => import('./pages/admin/dashboard.js')
+        icon:    'dashboard',
+        loader:  () => import('./pages/admin/dashboard.js'),
     },
     {
-        path: '#/admin/cell-inventory',
-        title: 'Cell Inventory Status',
-        roles: ['ADMIN'],
+        path:    '#/admin/cell-inventory',
+        title:   'Cell Inventory Status',
+        roles:   ['admin'],
         section: 'Admin Panel',
-        icon: 'inventory',
-        loader: () => import('./pages/admin/cellInventory.js')
-    },
-
-    {
-        path: '#/admin/traceability',
-        title: 'Battery Traceability',
-        roles: ['ADMIN'],
-        section: 'Admin Panel',
-        icon: 'timeline',
-        loader: () => import('./pages/admin/traceability.js')
+        icon:    'inventory',
+        loader:  () => import('./pages/admin/cellInventory.js'),
     },
     {
-        path: '#/admin/user-management',
-        title: 'User Management',
-        roles: ['ADMIN'],
+        path:    '#/admin/traceability',
+        title:   'Battery Traceability',
+        roles:   ['admin'],
         section: 'Admin Panel',
-        icon: 'manage_accounts',
-        loader: () => import('./pages/admin/userManagement.js')
+        icon:    'timeline',
+        loader:  () => import('./pages/admin/traceability.js'),
     },
-    
+    {
+        path:    '#/admin/user-management',
+        title:   'User Management',
+        roles:   ['admin'],
+        section: 'Admin Panel',
+        icon:    'manage_accounts',
+        loader:  () => import('./pages/admin/userManagement.js'),
+    },
 ];
+
+// ─── Lookup helpers ───────────────────────────────────────────────────────────
 
 /**
  * Find a route by its hash path.
@@ -151,31 +152,31 @@ export function findRoute(hash) {
 }
 
 /**
- * Get all routes that a given role is allowed to see in sidebar.
- * Only returns routes with a section (excludes login, unauthorized).
- * @param {string} role
+ * Get all sidebar-visible routes for a user's assigned_roles array.
+ * Admins get everything. Others only get routes where their roles overlap.
+ * @param {string[]} assignedRoles
  * @returns {Object[]}
  */
-export function getNavigableRoutes(role) {
-    return ROUTES.filter(r =>
-        r.section !== null &&
-        r.roles.length > 0 &&
-        r.roles.includes(role)
-    );
+export function getNavigableRoutes(assignedRoles) {
+    const isAdmin = assignedRoles.includes('admin');
+    return ROUTES.filter(r => {
+        if (!r.section) return false;
+        if (r.roles.length === 0) return false;
+        if (isAdmin) return true;
+        return r.roles.some(role => assignedRoles.includes(role));
+    });
 }
 
 /**
- * Group navigable routes by section name.
- * @param {string} role
+ * Group navigable routes by section.
+ * @param {string[]} assignedRoles
  * @returns {Map<string, Object[]>}
  */
-export function getRoutesBySection(role) {
-    const routes = getNavigableRoutes(role);
+export function getRoutesBySection(assignedRoles) {
+    const routes   = getNavigableRoutes(assignedRoles);
     const sections = new Map();
     routes.forEach(route => {
-        if (!sections.has(route.section)) {
-            sections.set(route.section, []);
-        }
+        if (!sections.has(route.section)) sections.set(route.section, []);
         sections.get(route.section).push(route);
     });
     return sections;

@@ -1,71 +1,73 @@
 /**
  * auth.js — Centralized Authentication Module
- * 
- * Manages JWT tokens, user session, and role verification.
- * All auth state is stored in sessionStorage (cleared on tab close).
- * Never stores sensitive data in localStorage.
+ *
+ * Manages session state, assigned_roles array from the backend,
+ * and role-based authorization checks.
+ *
+ * Session shape stored in sessionStorage:
+ *   mt_user → {
+ *     username:       string,
+ *     full_name:      string,
+ *     assigned_roles: string[]   ← from POST /users/login response
+ *   }
+ *
+ * Role logic:
+ *   - "admin" in assigned_roles  → treated as ADMIN (full access)
+ *   - any other role             → OPERATOR access to that specific route
  */
 
 const Auth = (() => {
-    const TOKEN_KEY = 'mt_token';
-    const USER_KEY = 'mt_user';
+    const SESSION_KEY = 'mt_user';
+    const EXPIRY_KEY  = 'mt_expiry';
+
+    const SESSION_HOURS = 8;
+
+    // ─── Write ────────────────────────────────────────────────────────────────
 
     /**
-     * Store authentication data after successful login.
-     * @param {string} token - JWT token from backend
-     * @param {Object} user - User object { id, name, role, email }
+     * Store session after a successful login.
+     * @param {{ username: string, full_name: string, assigned_roles: string[] }} userData
      */
-    function login(token, user) {
-        sessionStorage.setItem(TOKEN_KEY, token);
-        sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    function login(userData) {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(userData));
+        // Store expiry timestamp (ms)
+        const expiry = Date.now() + SESSION_HOURS * 60 * 60 * 1000;
+        sessionStorage.setItem(EXPIRY_KEY, String(expiry));
     }
 
     /**
-     * Clear all authentication data and redirect to login.
+     * Clear session and redirect to login.
      */
     function logout() {
-        sessionStorage.removeItem(TOKEN_KEY);
-        sessionStorage.removeItem(USER_KEY);
+        sessionStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(EXPIRY_KEY);
         window.location.hash = '#/login';
     }
 
+    // ─── Read ─────────────────────────────────────────────────────────────────
+
     /**
-     * Check if a user is currently authenticated.
+     * Is there a valid, non-expired session?
      * @returns {boolean}
      */
     function isAuthenticated() {
-        const token = sessionStorage.getItem(TOKEN_KEY);
-        if (!token) return false;
-
-        // Basic JWT expiry check (decode payload without verification —
-        // actual verification happens server-side on every API call)
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            if (payload.exp && payload.exp * 1000 < Date.now()) {
-                logout();
-                return false;
-            }
-            return true;
-        } catch {
+        const expiry = sessionStorage.getItem(EXPIRY_KEY);
+        if (!expiry || Date.now() > Number(expiry)) {
+            // Expired — clean up
+            sessionStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem(EXPIRY_KEY);
             return false;
         }
+        return !!sessionStorage.getItem(SESSION_KEY);
     }
 
     /**
-     * Get the current JWT token.
-     * @returns {string|null}
-     */
-    function getToken() {
-        return sessionStorage.getItem(TOKEN_KEY);
-    }
-
-    /**
-     * Get current user object.
-     * @returns {Object|null} - { id, name, role, email }
+     * Get the stored user object.
+     * @returns {{ username: string, full_name: string, assigned_roles: string[] } | null}
      */
     function getUser() {
         try {
-            const raw = sessionStorage.getItem(USER_KEY);
+            const raw = sessionStorage.getItem(SESSION_KEY);
             return raw ? JSON.parse(raw) : null;
         } catch {
             return null;
@@ -73,43 +75,90 @@ const Auth = (() => {
     }
 
     /**
-     * Get current user role.
-     * @returns {string|null} - 'ADMIN' | 'OPERATOR' | null
+     * Get the assigned_roles array.
+     * @returns {string[]}
+     */
+    function getRoles() {
+        return getUser()?.assigned_roles ?? [];
+    }
+
+    /**
+     * Is the current user an admin?
+     * (i.e. "admin" is in their assigned_roles)
+     * @returns {boolean}
+     */
+    function isAdmin() {
+        return getRoles().includes('admin');
+    }
+
+    /**
+     * Does the user have access to a specific role/page?
+     * Admins always pass. Otherwise check the roles array directly.
+     * @param {string} requiredRole  — the role string on the route definition
+     * @returns {boolean}
+     */
+    function hasAccess(requiredRole) {
+        if (!isAuthenticated()) return false;
+        if (isAdmin()) return true;                  // admin sees everything
+        return getRoles().includes(requiredRole);
+    }
+
+    /**
+     * Can this user access a route that requires ANY of the listed roles?
+     * Used by routeGuard and sidebar.
+     * @param {string[]} routeRoles — array of role strings on the route
+     * @returns {boolean}
+     */
+    function isAuthorized(routeRoles) {
+        if (!routeRoles || routeRoles.length === 0) return true;   // public route
+        if (!isAuthenticated()) return false;
+        if (isAdmin()) return true;                                  // admin bypass
+        return routeRoles.some(r => getRoles().includes(r));
+    }
+
+    /**
+     * Get a token string for Authorization headers.
+     * The new login flow has no JWT — we build a lightweight placeholder
+     * so that api.js can still attach a Bearer header if it wants to.
+     * The real auth check is handled server-side via session/cookie or
+     * simply by the fact that the user is logged in.
+     * Returns a base64-encoded copy of the session payload so api.js
+     * has something non-null to send.
+     * @returns {string|null}
+     */
+    function getToken() {
+        const user = getUser();
+        if (!user) return null;
+        // Return a stable pseudo-token derived from the session.
+        // Replace this with a real JWT if your backend starts issuing one.
+        try {
+            return btoa(JSON.stringify({ username: user.username, roles: user.assigned_roles }));
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Legacy: return a single role string for parts of the app
+     * that still do a simple role === 'ADMIN' check.
+     * @returns {'ADMIN' | 'OPERATOR' | null}
      */
     function getRole() {
-        const user = getUser();
-        return user ? user.role : null;
-    }
-
-    /**
-     * Check if current user has a specific role.
-     * @param {string} role
-     * @returns {boolean}
-     */
-    function hasRole(role) {
-        return getRole() === role;
-    }
-
-    /**
-     * Check if current user's role is within an allowed set.
-     * @param {string[]} allowedRoles
-     * @returns {boolean}
-     */
-    function isAuthorized(allowedRoles) {
-        if (!allowedRoles || allowedRoles.length === 0) return true;
-        const role = getRole();
-        return role && allowedRoles.includes(role);
+        if (!isAuthenticated()) return null;
+        return isAdmin() ? 'ADMIN' : 'OPERATOR';
     }
 
     return Object.freeze({
         login,
         logout,
         isAuthenticated,
-        getToken,
+        getToken,     // used by api.js for Authorization header
         getUser,
-        getRole,
-        hasRole,
-        isAuthorized
+        getRoles,
+        isAdmin,
+        hasAccess,
+        isAuthorized,
+        getRole,      // kept for backwards compat
     });
 })();
 

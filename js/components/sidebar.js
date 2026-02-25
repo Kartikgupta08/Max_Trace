@@ -1,9 +1,11 @@
 /**
  * sidebar.js — Dynamic Sidebar Navigation
- * 
- * Renders sidebar links based on current user role.
- * Admin items are NEVER added to DOM for operator users.
- * Dynamically generated from route configuration.
+ *
+ * Renders ONLY the routes the current user is permitted to see,
+ * derived from their assigned_roles array (not a single role string).
+ *
+ * Admin users (assigned_roles includes "admin") see every section.
+ * All other users see only routes whose roles[] intersect their assigned_roles.
  */
 
 import Auth from '../core/auth.js';
@@ -11,35 +13,43 @@ import { getRoutesBySection } from '../routes.js';
 
 const Sidebar = {
     /**
-     * Render the sidebar HTML.
-     * Only includes routes the current user's role is allowed to see.
-     * @returns {string} HTML string
+     * Render the full sidebar HTML.
+     * @returns {string}
      */
     render() {
-        const user = Auth.getUser();
-        const role = Auth.getRole();
+        const user  = Auth.getUser();
+        if (!user) return '';
 
-        if (!user || !role) return '';
+        const assignedRoles = Auth.getRoles();   // string[]
+        const sections      = getRoutesBySection(assignedRoles);
 
-        const sections = getRoutesBySection(role);
+        // Build nav links
         let navHtml = '';
-
         sections.forEach((routes, sectionName) => {
-            navHtml += `<div class="sidebar__section-title">${sectionName}</div>`;
+            navHtml += `<div class="sidebar__section-title">${_escapeHtml(sectionName)}</div>`;
             routes.forEach(route => {
                 navHtml += `
                     <a class="sidebar__link" href="${route.path}" data-route="${route.path}">
                         <span class="sidebar__link-icon material-symbols-outlined">${route.icon}</span>
-                        <span>${route.title}</span>
-                    </a>
-                `;
+                        <span>${_escapeHtml(route.title)}</span>
+                    </a>`;
             });
         });
 
-        // User initials for avatar
-        const initials = user.name
-            ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-            : 'U';
+        // Avatar initials from full_name
+        const displayName = user.full_name || user.username || 'User';
+        const initials = displayName
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+
+        // Role label shown in footer
+        // Show "Admin" for admins, otherwise list roles (truncated)
+        const roleLabel = Auth.isAdmin()
+            ? 'Admin'
+            : assignedRoles.slice(0, 2).join(', ') + (assignedRoles.length > 2 ? '…' : '');
 
         return `
             <div class="sidebar__brand">
@@ -50,30 +60,29 @@ const Sidebar = {
                 </div>
             </div>
             <nav class="sidebar__nav" id="sidebar-nav">
-                ${navHtml}
+                ${navHtml || '<p style="padding:16px;font-size:12px;color:var(--color-text-tertiary)">No pages assigned.</p>'}
             </nav>
             <div class="sidebar__footer">
                 <div class="sidebar__user">
                     <div class="sidebar__user-avatar">${initials}</div>
                     <div class="sidebar__user-info">
-                        <div class="sidebar__user-name">${_escapeHtml(user.name || 'User')}</div>
-                        <div class="sidebar__user-role">${role}</div>
+                        <div class="sidebar__user-name">${_escapeHtml(displayName)}</div>
+                        <div class="sidebar__user-role">${_escapeHtml(roleLabel)}</div>
                     </div>
                     <button class="sidebar__logout-btn" id="btn-logout" title="Logout">
                         <span class="material-symbols-outlined" style="font-size:20px;">logout</span>
                     </button>
                 </div>
-            </div>
-        `;
+            </div>`;
     },
 
     /**
-     * Initialize sidebar event listeners.
+     * Bind sidebar event listeners (logout button).
      */
     init() {
         const logoutBtn = document.getElementById('btn-logout');
         if (logoutBtn) {
-            logoutBtn.addEventListener('click', (e) => {
+            logoutBtn.addEventListener('click', e => {
                 e.preventDefault();
                 Auth.logout();
             });
@@ -81,19 +90,14 @@ const Sidebar = {
     },
 
     /**
-     * Highlight the active link in sidebar.
-     * @param {string} hash - Current route hash
+     * Highlight the active nav link.
+     * @param {string} hash
      */
     setActive(hash) {
-        const links = document.querySelectorAll('.sidebar__link');
-        links.forEach(link => {
-            if (link.getAttribute('data-route') === hash) {
-                link.classList.add('sidebar__link--active');
-            } else {
-                link.classList.remove('sidebar__link--active');
-            }
+        document.querySelectorAll('.sidebar__link').forEach(link => {
+            link.classList.toggle('sidebar__link--active', link.dataset.route === hash);
         });
-    }
+    },
 };
 
 function _escapeHtml(str) {
