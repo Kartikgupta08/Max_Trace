@@ -776,7 +776,7 @@ const UserManagement = {
                     <div class="um-form-grid">
                         <div class="um-field">
                             <label for="um-username">Username</label>
-                            <input type="text" id="um-username" class="form-input" placeholder="e.g. john.doe" required />
+                            <input type="text" id="um-username" class="form-input" placeholder="e.g. Admin" required />
                         </div>
                         <div class="um-field">
                             <label for="um-password">Password</label>
@@ -784,7 +784,7 @@ const UserManagement = {
                         </div>
                         <div class="um-field">
                             <label for="um-fullname">Full Name</label>
-                            <input type="text" id="um-fullname" class="form-input" placeholder="e.g. John Doe" required />
+                            <input type="text" id="um-fullname" class="form-input" placeholder="e.g. Enter Full Name" required />
                         </div>
                         <div class="um-role-wrap">
                             <label>Assigned Roles</label>
