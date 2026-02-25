@@ -6,8 +6,8 @@ const API_BASE = 'http://localhost:8000';
  */
 
 const ROLES = [
-    'admin',
-    'Cell Registeration',
+    'Admin',
+    'Cell Registration',
     'Cell Grading',
     'Cell Sorting',
     'Assembly and Mapping',
