@@ -196,7 +196,7 @@ const UserManagement = {
                 </thead>
                 <tbody>
                     ${this.users.map(u => `
-                        <tr data-user-id="${u.id}">
+                        <tr data-username="${u.username}">
                             <td>${u.username}</td>
                             <td>${u.full_name}</td>
                             <td>${Array.isArray(u.assigned_roles) ? u.assigned_roles.join(', ') : u.assigned_roles}</td>
@@ -226,9 +226,9 @@ const UserManagement = {
             btn.onclick = (e) => {
                 e.preventDefault();
                 const tr = btn.closest('tr');
-                const userId = tr.getAttribute('data-user-id');
+                const username = tr.querySelector('td').textContent.trim();
                 if (confirm('Delete this user?')) {
-                    UserManagement.deleteUser(userId);
+                    UserManagement.deleteUser(username);
                 }
             };
         });
@@ -236,17 +236,17 @@ const UserManagement = {
             btn.onclick = (e) => {
                 e.preventDefault();
                 const tr = btn.closest('tr');
-                const userId = tr.getAttribute('data-user-id');
-                UserManagement.showEditUserForm(userId);
+                const username = tr.getAttribute('data-username');
+                UserManagement.showEditUserForm(username);
             };
         });
     },
 
     async deleteUser(userId) {
-        // Call backend to delete user
+        // Call backend to delete user by username
         try {
-            await fetch(`${API_BASE}/users/${userId}`, { method: 'DELETE' });
-            this.users = this.users.filter(u => String(u.id) !== String(userId));
+            await fetch(`${API_BASE}/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+            this.users = this.users.filter(u => u.username !== userId);
             this.renderUserList();
         } catch (err) {
             alert('Failed to delete user: ' + err.message);
@@ -254,7 +254,7 @@ const UserManagement = {
     },
 
     showEditUserForm(userId) {
-        const user = this.users.find(u => String(u.id) === String(userId));
+        const user = this.users.find(u => u.username === userId);
         if (!user) return;
         let editForm = document.getElementById('edit-user-form');
         if (editForm) editForm.remove();
@@ -270,7 +270,7 @@ const UserManagement = {
         container.innerHTML = `
             <h2 style="margin-top:0;">Edit User</h2>
             <form id="edit-user-detail-form">
-                <label>Username:<input type="text" name="username" value="${user.username}" required class="form-input" /></label><br><br>
+                <label>Username:<input type="text" name="username" value="${user.username}" required class="form-input" readonly /></label><br><br>
                 <label>Full Name:<input type="text" name="full_name" value="${user.full_name}" required class="form-input" /></label><br><br>
                 <label>Roles:<input type="text" name="assigned_roles" value="${user.assigned_roles.join(', ')}" required class="form-input" /></label><br><br>
                 <label>Active:<input type="checkbox" name="is_active" ${user.is_active ? 'checked' : ''} /></label><br><br>
@@ -281,28 +281,59 @@ const UserManagement = {
         document.body.appendChild(container);
         document.getElementById('cancel-edit-user').onclick = () => {
             container.remove();
+            // Reset add user form after closing edit modal
+            const addUserForm = document.getElementById('add-user-form');
+            if (addUserForm) {
+                addUserForm.reset();
+                // Also reset role selection UI
+                const roleMenu = document.getElementById('role-checkbox-menu');
+                const roleBtn = document.getElementById('role-select-btn');
+                if (roleMenu) roleMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                if (roleBtn) roleBtn.textContent = 'Select Role(s)';
+            }
         };
         document.getElementById('edit-user-detail-form').onsubmit = async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            const updatedUser = {
-                ...user,
-                username: formData.get('username'),
+            // Only send fields that are editable
+            const patchData = {
                 full_name: formData.get('full_name'),
                 assigned_roles: formData.get('assigned_roles').split(',').map(r => r.trim()),
                 is_active: formData.get('is_active') === 'on',
             };
             try {
-                await fetch(`${API_BASE}/users/${user.id}`, {
-                    method: 'PUT',
+                const res = await fetch(`${API_BASE}/users/${encodeURIComponent(user.username)}`, {
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedUser)
+                    body: JSON.stringify(patchData)
                 });
+                if (!res.ok) {
+                    let errMsg = 'Failed to update user';
+                    try {
+                        const err = await res.json();
+                        if (err.detail && Array.isArray(err.detail)) {
+                            errMsg += ': ' + err.detail.map(d => d.msg).join('; ');
+                        }
+                    } catch {}
+                    throw new Error(errMsg);
+                }
+                const updatedUser = await res.json();
                 // Update local user
                 const idx = UserManagement.users.findIndex(u => String(u.id) === String(user.id));
                 if (idx !== -1) UserManagement.users[idx] = updatedUser;
                 UserManagement.renderUserList();
                 container.remove();
+                UserManagement.showToast('User updated successfully.', 'success');
+                // Reset add user form after editing
+                const addUserForm = document.getElementById('add-user-form');
+                if (addUserForm) {
+                    addUserForm.reset();
+                    // Also reset role selection UI
+                    const roleMenu = document.getElementById('role-checkbox-menu');
+                    const roleBtn = document.getElementById('role-select-btn');
+                    if (roleMenu) roleMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                    if (roleBtn) roleBtn.textContent = 'Select Role(s)';
+                }
             } catch (err) {
                 alert('Failed to update user: ' + err.message);
             }
