@@ -629,7 +629,7 @@ const Traceability = {
                     { key: 'status', label: 'Status', render: (v) => StatusBadge.render(v) },
                     { key: 'created_at', label: 'Created At' },
                     { key: 'assembled_at', label: 'Assembled On' },
-                    { key: 'dispatch_destination', label: 'Dispatch Destination' }
+                    { key: 'dispatch_destination', label: 'Customer Name' }
                 ],
                 rows: items,
                 expandable: true,
@@ -669,7 +669,7 @@ const Traceability = {
                         <div class="detail-panel__value">${StatusBadge.render(row.pdi_result)}</div>
                     </div>
                     <div class="detail-panel__item">
-                        <div class="detail-panel__label">Dispatched To</div>
+                        <div class="detail-panel__label">Customer Name</div>
                         <div class="detail-panel__value">${row.dispatch_destination || '—'}</div>
                     </div>
                     <div class="detail-panel__item">
