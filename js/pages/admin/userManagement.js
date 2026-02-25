@@ -2,8 +2,26 @@ const API_BASE = 'http://localhost:8000';
 
 /**
  * userManagement.js — Admin User Management Page
- * Allows admin to view, add, and manage users.
+ * Fully matched to the app design system (variables.css + existing component classes).
  */
+
+/**
+ * Production roles that can be individually assigned to operators.
+ * 'admin' is handled separately via a dedicated toggle — it automatically
+ * grants access to all admin pages (Dashboard, Cell Inventory, Traceability,
+ * User Management) without needing to be listed here.
+ */
+const PRODUCTION_ROLES = [
+    'Cell Registration',
+    'Cell Grading',
+    'Cell Sorting',
+    'Assembly and Mapping',
+    'Welding',
+    'BMS Mounting',
+    'Pack Testing',
+    'PDI Inspection',
+    'Dispatch',
+];
 
 const UserManagement = {
     users: [],
@@ -12,43 +30,917 @@ const UserManagement = {
 
     render() {
         return `
-        <div class="content user-management-page">
-            <div class="page-header">
-                <h1 class="page-header__title">User Management</h1>
+        <style>
+            /* ── User Management Scoped Styles ── */
+
+            .user-management-page {
+                padding: var(--content-padding);
+                background: var(--color-bg-body);
+                min-height: 100vh;
+                font-family: var(--font-family);
+            }
+
+            /* ── Page Header ── */
+            .um-page-header {
+                margin-bottom: var(--space-6);
+            }
+
+            .um-page-header h1 {
+                font-size: var(--text-xl);
+                font-weight: var(--weight-bold);
+                color: var(--color-text-primary);
+                margin: 0 0 var(--space-1) 0;
+                line-height: var(--leading-tight);
+            }
+
+            .um-page-header p {
+                font-size: var(--text-sm);
+                color: var(--color-text-secondary);
+                margin: 0;
+            }
+
+            /* ── Cards ── */
+            .um-card {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-md);
+                padding: var(--space-6);
+                margin-bottom: var(--space-6);
+                max-width: 1100px;
+            }
+
+            .um-card-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: var(--space-5);
+            }
+
+            .um-card-title {
+                font-size: var(--text-sm);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin: 0;
+            }
+
+            .um-user-count {
+                font-size: var(--text-xs);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-tertiary);
+                background: var(--color-bg-body);
+                border: 1px solid var(--color-border);
+                border-radius: 20px;
+                padding: 2px 10px;
+            }
+
+            /* ── Add User Form Grid ── */
+            .um-form-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr 1.3fr auto;
+                gap: var(--space-3);
+                align-items: end;
+            }
+
+            @media (max-width: 960px) {
+                .um-form-grid {
+                    grid-template-columns: 1fr 1fr;
+                }
+                .um-submit-btn { grid-column: 1 / -1; }
+            }
+
+            .um-field {
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-1);
+            }
+
+            .um-field label,
+            .um-modal-label {
+                display: block;
+                font-size: var(--text-xs);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                margin-bottom: var(--space-1);
+            }
+
+            /* ── Form Input (shared with rest of app) ── */
+            .form-input {
+                background: var(--color-bg-input);
+                border: 1px solid var(--color-border-input);
+                border-radius: var(--radius-md);
+                color: var(--color-text-primary);
+                font-family: var(--font-family);
+                font-size: var(--text-sm);
+                padding: 9px var(--space-3);
+                width: 100%;
+                box-sizing: border-box;
+                outline: none;
+                transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+            }
+
+            .form-input:focus {
+                border-color: var(--color-border-focus);
+                box-shadow: 0 0 0 3px var(--color-primary-surface);
+            }
+
+            .form-input::placeholder { color: var(--color-text-tertiary); }
+
+            .form-input[readonly] {
+                background: var(--color-bg-body);
+                color: var(--color-text-secondary);
+                cursor: not-allowed;
+            }
+
+            /* ── Role Dropdown ── */
+            .um-role-wrap {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-1);
+            }
+
+            .um-role-wrap > label {
+                font-size: var(--text-xs);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+            }
+
+            .um-role-btn {
+                background: var(--color-bg-input);
+                border: 1px solid var(--color-border-input);
+                border-radius: var(--radius-md);
+                color: var(--color-text-primary);
+                font-family: var(--font-family);
+                font-size: var(--text-sm);
+                padding: 9px var(--space-3);
+                width: 100%;
+                text-align: left;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: var(--space-2);
+                outline: none;
+                box-sizing: border-box;
+                transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+            }
+
+            .um-role-btn:focus,
+            .um-role-btn.open {
+                border-color: var(--color-border-focus);
+                box-shadow: 0 0 0 3px var(--color-primary-surface);
+            }
+
+            .um-role-label {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: var(--color-text-tertiary);
+            }
+
+            .um-role-btn.has-selection .um-role-label {
+                color: var(--color-text-primary);
+            }
+
+            .um-chevron {
+                flex-shrink: 0;
+                color: var(--color-text-tertiary);
+                transition: transform var(--transition-fast);
+            }
+
+            .um-role-btn.open .um-chevron { transform: rotate(180deg); }
+
+            .um-role-badge {
+                background: var(--color-primary);
+                color: var(--color-text-inverse);
+                font-size: var(--text-xs);
+                font-weight: var(--weight-semibold);
+                border-radius: 20px;
+                padding: 1px 7px;
+                flex-shrink: 0;
+            }
+
+            .um-role-menu {
+                display: none;
+                position: absolute;
+                top: calc(100% + 4px);
+                left: 0;
+                right: 0;
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-md);
+                z-index: 200;
+                box-shadow: var(--shadow-lg);
+                overflow: hidden;
+                max-height: 260px;
+                overflow-y: auto;
+            }
+
+            .um-role-menu.open { display: block; }
+
+            .um-role-menu label {
+                display: flex;
+                align-items: center;
+                gap: var(--space-2);
+                padding: 9px var(--space-3);
+                font-size: var(--text-sm);
+                font-weight: var(--weight-regular);
+                color: var(--color-text-primary);
+                text-transform: none;
+                letter-spacing: 0;
+                cursor: pointer;
+                transition: background var(--transition-fast);
+                user-select: none;
+            }
+
+            .um-role-menu label:hover { background: var(--color-bg-table-row-hover); }
+
+            .um-role-menu input[type="checkbox"] {
+                accent-color: var(--color-primary);
+                width: 14px;
+                height: 14px;
+                cursor: pointer;
+                flex-shrink: 0;
+            }
+
+            /* ── Buttons ── */
+            .btn {
+                display: inline-flex;
+                align-items: center;
+                gap: var(--space-2);
+                padding: 9px var(--space-4);
+                border-radius: var(--radius-md);
+                font-family: var(--font-family);
+                font-size: var(--text-sm);
+                font-weight: var(--weight-semibold);
+                cursor: pointer;
+                border: 1px solid transparent;
+                outline: none;
+                transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+                white-space: nowrap;
+                line-height: 1;
+            }
+
+            .btn:active:not(:disabled) { transform: scale(0.98); }
+            .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+            .btn--primary {
+                background: var(--color-primary);
+                color: var(--color-text-inverse);
+                border-color: var(--color-primary);
+            }
+            .btn--primary:hover:not(:disabled) {
+                background: var(--color-primary-light);
+                border-color: var(--color-primary-light);
+            }
+
+            .btn--ghost {
+                background: transparent;
+                color: var(--color-text-secondary);
+                border-color: var(--color-border);
+            }
+            .btn--ghost:hover:not(:disabled) {
+                background: var(--color-bg-body);
+            }
+
+            .btn--danger {
+                background: var(--color-error);
+                color: var(--color-text-inverse);
+                border-color: var(--color-error);
+            }
+            .btn--danger:hover:not(:disabled) {
+                background: #A82020;
+                border-color: #A82020;
+            }
+
+            .btn--icon-ghost {
+                background: transparent;
+                color: var(--color-text-secondary);
+                border-color: transparent;
+                padding: 6px var(--space-2);
+            }
+            .btn--icon-ghost:hover:not(:disabled) {
+                background: var(--color-primary-surface);
+                color: var(--color-primary);
+            }
+
+            .btn--danger-ghost {
+                background: transparent;
+                color: var(--color-error);
+                border-color: transparent;
+                padding: 6px var(--space-2);
+            }
+            .btn--danger-ghost:hover:not(:disabled) {
+                background: var(--color-error-bg);
+                border-color: var(--color-error-border);
+            }
+
+            /* ── Table ── */
+            .user-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .user-table thead {
+                background: var(--color-bg-table-header);
+            }
+
+            .user-table th {
+                padding: var(--space-3);
+                text-align: left;
+                font-size: var(--text-xs);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                border-bottom: 1px solid var(--color-border);
+                white-space: nowrap;
+            }
+
+            .user-table td {
+                padding: var(--space-3);
+                font-size: var(--text-sm);
+                color: var(--color-text-primary);
+                border-bottom: 1px solid var(--color-border-light);
+                vertical-align: middle;
+            }
+
+            .user-table tbody tr:last-child td { border-bottom: none; }
+
+            .user-table tbody tr:hover td {
+                background: var(--color-bg-table-row-hover);
+            }
+
+            .um-actions-cell {
+                display: flex !important;
+                align-items: center;
+                gap: var(--space-1);
+            }
+
+            /* ── Role Pills ── */
+            .um-pills {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
+            .um-pill {
+                display: inline-block;
+                font-size: var(--text-xs);
+                font-weight: var(--weight-medium);
+                border-radius: 20px;
+                padding: 2px 9px;
+                background: var(--color-primary-surface);
+                color: var(--color-primary);
+                border: 1px solid #C5D5E8;
+                white-space: nowrap;
+            }
+
+            .um-pill--admin {
+                background: #F3E8FF;
+                color: #6B21A8;
+                border-color: #D8B4FE;
+            }
+
+            /* ── Status Badge ── */
+            .um-status {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-size: var(--text-xs);
+                font-weight: var(--weight-semibold);
+                border-radius: 20px;
+                padding: 2px 10px;
+                white-space: nowrap;
+            }
+
+            .um-status::before {
+                content: '';
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+
+            .um-status--active {
+                background: var(--color-success-bg);
+                color: var(--color-success);
+                border: 1px solid var(--color-success-border);
+            }
+            .um-status--active::before { background: var(--color-success); }
+
+            .um-status--inactive {
+                background: var(--color-inactive-bg);
+                color: var(--color-inactive);
+                border: 1px solid #E0E0E0;
+            }
+            .um-status--inactive::before { background: var(--color-inactive); }
+
+            /* ── Table text helpers ── */
+            .um-username {
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-primary);
+            }
+
+            .um-muted {
+                color: var(--color-text-tertiary);
+                font-size: var(--text-xs);
+            }
+
+            /* ── Skeleton ── */
+            @keyframes um-shimmer {
+                0%   { background-position: -600px 0; }
+                100% { background-position:  600px 0; }
+            }
+
+            .um-skeleton {
+                height: 13px;
+                border-radius: var(--radius-sm);
+                background: linear-gradient(
+                    90deg,
+                    var(--color-border-light) 25%,
+                    var(--color-border) 50%,
+                    var(--color-border-light) 75%
+                );
+                background-size: 1200px 100%;
+                animation: um-shimmer 1.5s infinite;
+            }
+
+            /* ── Empty state ── */
+            .um-empty {
+                text-align: center;
+                padding: var(--space-16) var(--space-8);
+                color: var(--color-text-tertiary);
+            }
+
+            .um-empty svg { margin-bottom: var(--space-4); opacity: 0.3; }
+
+            .um-empty-title {
+                font-size: var(--text-base);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-secondary);
+                margin: 0 0 var(--space-1) 0;
+            }
+
+            .um-empty-sub {
+                font-size: var(--text-sm);
+                margin: 0;
+            }
+
+            /* ── Modal ── */
+            .um-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(26, 29, 38, 0.5);
+                backdrop-filter: blur(2px);
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: um-fade 0.15s ease;
+            }
+
+            @keyframes um-fade {
+                from { opacity: 0; }
+                to   { opacity: 1; }
+            }
+
+            @keyframes um-rise {
+                from { opacity: 0; transform: translateY(10px) scale(0.99); }
+                to   { opacity: 1; transform: translateY(0)   scale(1); }
+            }
+
+            .um-modal {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-xl);
+                box-shadow: var(--shadow-xl);
+                padding: var(--space-6) var(--space-8);
+                width: 100%;
+                max-width: 500px;
+                animation: um-rise 0.18s ease;
+            }
+
+            .um-modal-sm { max-width: 400px; }
+
+            .um-modal-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: var(--space-5);
+                padding-bottom: var(--space-4);
+                border-bottom: 1px solid var(--color-border-light);
+            }
+
+            .um-modal-title {
+                font-size: var(--text-md);
+                font-weight: var(--weight-bold);
+                color: var(--color-text-primary);
+                margin: 0;
+            }
+
+            .um-modal-close {
+                background: none;
+                border: none;
+                color: var(--color-text-tertiary);
+                cursor: pointer;
+                font-size: 18px;
+                width: 32px;
+                height: 32px;
+                border-radius: var(--radius-md);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background var(--transition-fast), color var(--transition-fast);
+            }
+
+            .um-modal-close:hover {
+                background: var(--color-bg-body);
+                color: var(--color-text-primary);
+            }
+
+            .um-modal-field { margin-bottom: var(--space-4); }
+
+            /* Modal role grid */
+            .um-modal-role-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2px;
+                border: 1px solid var(--color-border-input);
+                border-radius: var(--radius-md);
+                overflow: hidden;
+                background: var(--color-bg-body);
+                max-height: 220px;
+                overflow-y: auto;
+            }
+
+            .um-modal-role-grid label {
+                display: flex;
+                align-items: center;
+                gap: var(--space-2);
+                padding: 8px var(--space-3);
+                font-size: var(--text-sm);
+                font-weight: var(--weight-regular);
+                color: var(--color-text-primary);
+                text-transform: none;
+                letter-spacing: 0;
+                cursor: pointer;
+                transition: background var(--transition-fast);
+                user-select: none;
+                background: var(--color-bg-card);
+            }
+
+            .um-modal-role-grid label:hover {
+                background: var(--color-bg-table-row-hover);
+            }
+
+            .um-modal-role-grid input[type="checkbox"] {
+                accent-color: var(--color-primary);
+                width: 14px;
+                height: 14px;
+                flex-shrink: 0;
+                cursor: pointer;
+            }
+
+            /* Toggle */
+            .um-toggle-row {
+                display: flex;
+                align-items: center;
+                gap: var(--space-3);
+            }
+
+            .um-toggle {
+                position: relative;
+                width: 38px;
+                height: 21px;
+                flex-shrink: 0;
+            }
+
+            .um-toggle input { opacity: 0; width: 0; height: 0; }
+
+            .um-toggle-track {
+                position: absolute;
+                inset: 0;
+                background: var(--color-border-input);
+                border-radius: 21px;
+                cursor: pointer;
+                transition: background var(--transition-fast);
+            }
+
+            .um-toggle-track::before {
+                content: '';
+                position: absolute;
+                width: 15px;
+                height: 15px;
+                left: 3px;
+                top: 3px;
+                background: #fff;
+                border-radius: 50%;
+                transition: transform var(--transition-fast);
+                box-shadow: var(--shadow-sm);
+            }
+
+            .um-toggle input:checked + .um-toggle-track { background: var(--color-primary); }
+            .um-toggle input:checked + .um-toggle-track::before { transform: translateX(17px); }
+
+            .um-toggle-label {
+                font-size: var(--text-sm);
+                color: var(--color-text-secondary);
+            }
+
+            /* Modal footer */
+            .um-modal-footer {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: var(--space-3);
+                margin-top: var(--space-6);
+                padding-top: var(--space-5);
+                border-top: 1px solid var(--color-border-light);
+            }
+
+            /* Confirm delete body */
+            .um-confirm-body {
+                font-size: var(--text-sm);
+                color: var(--color-text-secondary);
+                line-height: var(--leading-relaxed);
+                padding: var(--space-2) 0 var(--space-4);
+                margin: 0;
+            }
+
+            .um-confirm-body strong {
+                color: var(--color-text-primary);
+                font-weight: var(--weight-semibold);
+            }
+
+            /* ── Toasts ── */
+            #um-toasts {
+                position: fixed;
+                top: var(--space-6);
+                right: var(--space-6);
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-2);
+                pointer-events: none;
+            }
+
+            .um-toast {
+                display: flex;
+                align-items: flex-start;
+                gap: var(--space-3);
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                padding: var(--space-3) var(--space-4);
+                min-width: 300px;
+                box-shadow: var(--shadow-lg);
+                pointer-events: all;
+                animation: um-rise 0.2s ease;
+            }
+
+            .um-toast--success { border-left: 3px solid var(--color-success); }
+            .um-toast--error   { border-left: 3px solid var(--color-error); }
+
+            .um-toast-icon {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+                font-weight: var(--weight-bold);
+                flex-shrink: 0;
+                margin-top: 1px;
+            }
+
+            .um-toast--success .um-toast-icon {
+                background: var(--color-success-bg);
+                color: var(--color-success);
+            }
+
+            .um-toast--error .um-toast-icon {
+                background: var(--color-error-bg);
+                color: var(--color-error);
+            }
+
+            .um-toast-body { flex: 1; }
+
+            .um-toast-title {
+                font-size: var(--text-sm);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-primary);
+                margin-bottom: 1px;
+            }
+
+            .um-toast-msg {
+                font-size: var(--text-xs);
+                color: var(--color-text-secondary);
+                line-height: var(--leading-normal);
+            }
+
+            .um-toast-close {
+                background: none;
+                border: none;
+                color: var(--color-text-tertiary);
+                cursor: pointer;
+                font-size: 14px;
+                padding: 0;
+                line-height: 1;
+                align-self: center;
+                transition: color var(--transition-fast);
+            }
+
+            .um-toast-close:hover { color: var(--color-text-primary); }
+
+            /* ── Admin toggle in role dropdown ── */
+            .um-role-menu-admin {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px var(--space-3);
+                border-bottom: 1px solid var(--color-border-light);
+                gap: var(--space-3);
+                cursor: default;
+            }
+
+            .um-role-menu-admin-left {
+                display: flex;
+                align-items: center;
+                gap: var(--space-2);
+            }
+
+            .um-admin-icon {
+                width: 22px;
+                height: 22px;
+                background: #F3E8FF;
+                color: #6B21A8;
+                border-radius: var(--radius-sm);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                flex-shrink: 0;
+            }
+
+            .um-admin-label-text {
+                font-size: var(--text-sm);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-primary);
+                line-height: 1.2;
+            }
+
+            .um-admin-sublabel {
+                font-size: var(--text-xs);
+                color: var(--color-text-tertiary);
+                margin-top: 2px;
+            }
+
+            .um-role-menu-section-header {
+                padding: 7px var(--space-3) 4px;
+                font-size: var(--text-xs);
+                font-weight: var(--weight-semibold);
+                color: var(--color-text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                background: var(--color-bg-table-header);
+                border-bottom: 1px solid var(--color-border-light);
+            }
+
+            .um-role-menu label.um-role-disabled {
+                opacity: 0.38;
+                pointer-events: none;
+            }
+
+            .um-admin-pages-note {
+                display: none;
+                margin: 6px var(--space-3);
+                background: #F3E8FF;
+                border: 1px solid #D8B4FE;
+                border-radius: var(--radius-sm);
+                padding: 7px var(--space-2);
+                font-size: var(--text-xs);
+                color: #6B21A8;
+                line-height: var(--leading-relaxed);
+            }
+
+            .um-admin-pages-note.visible { display: block; }
+        </style>
+
+        <div id="um-toasts"></div>
+
+        <div class="user-management-page">
+
+            <!-- Page Header -->
+            <div class="um-page-header">
+                <h1>User Management</h1>
+                <p>Create and manage operator accounts and their role access.</p>
             </div>
-            <div class="user-management__form-card">
-                <form id="add-user-form" class="user-form">
-                    <div class="user-form__row">
-                        <input type="text" id="username" class="form-input" placeholder="Username" required />
-                        <input type="password" id="password" class="form-input" placeholder="Password" required />
-                        <input type="text" id="full_name" class="form-input" placeholder="Full Name" required />
-                        <div class="role-select-group" style="position:relative;">
-                            <button type="button" id="role-select-btn" class="form-input" style="width:320px; text-align:left; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">Select Role(s)</button>
-                            <div id="role-checkbox-menu" class="role-checkbox-menu" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; z-index:10; padding:10px; min-width:320px;">
-                                <label><input type="checkbox" value="admin"> Admin</label><br>
-                                <label><input type="checkbox" value="Cell Registeration"> Cell Registeration</label><br>
-                                <label><input type="checkbox" value="Cell Grading"> Cell Grading</label><br>
-                                <label><input type="checkbox" value="Cell Sorting"> Cell Sorting</label><br>
-                                <label><input type="checkbox" value="Assembly and Mapping"> Assembly and Mapping</label><br>
-                                <label><input type="checkbox" value="Welding"> Welding</label><br>
-                                <label><input type="checkbox" value="BMS Mounting"> BMS Mounting</label><br>
-                                <label><input type="checkbox" value="Pack Testing"> Pack Testing</label><br>
-                                <label><input type="checkbox" value="PDI Inspection"> PDI Inspection</label><br>
-                                <label><input type="checkbox" value="Dispatch"> Dispatch</label>
+
+            <!-- Add User Form -->
+            <div class="um-card">
+                <div class="um-card-header">
+                    <p class="um-card-title">Add New User</p>
+                </div>
+                <form id="um-add-form" autocomplete="off">
+                    <div class="um-form-grid">
+                        <div class="um-field">
+                            <label for="um-username">Username</label>
+                            <input type="text" id="um-username" class="form-input" placeholder="e.g. username" required />
+                        </div>
+                        <div class="um-field">
+                            <label for="um-password">Password</label>
+                            <input type="password" id="um-password" class="form-input" placeholder="Set a password" required autocomplete="new-password" />
+                        </div>
+                        <div class="um-field">
+                            <label for="um-fullname">Full Name</label>
+                            <input type="text" id="um-fullname" class="form-input" placeholder="e.g. Full Name" required />
+                        </div>
+                        <div class="um-role-wrap">
+                            <label>Assigned Roles</label>
+                            <button type="button" id="um-role-btn" class="um-role-btn">
+                                <span class="um-role-label">Select role(s)</span>
+                                <svg class="um-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div id="um-role-menu" class="um-role-menu">
+                                <!-- Admin toggle row -->
+                                <div class="um-role-menu-admin">
+                                    <div class="um-role-menu-admin-left">
+                                        <div class="um-admin-icon">&#9670;</div>
+                                        <div>
+                                            <div class="um-admin-label-text">Admin</div>
+                                            <div class="um-admin-sublabel">Full access — all pages included</div>
+                                        </div>
+                                    </div>
+                                    <label class="um-toggle" title="Grant admin access">
+                                        <input type="checkbox" id="um-admin-toggle" value="admin" />
+                                        <span class="um-toggle-track"></span>
+                                    </label>
+                                </div>
+                                <!-- Admin pages note (shown when admin is on) -->
+                                <div class="um-admin-pages-note" id="um-admin-note">
+                                    &#10003;&nbsp; Automatically includes: Dashboard, Cell Inventory, Battery Traceability, User Management + all production pages.
+                                </div>
+                                <!-- Production roles section -->
+                                <div class="um-role-menu-section-header">Production Pages</div>
+                                ${PRODUCTION_ROLES.map(r => `
+                                    <label>
+                                        <input type="checkbox" value="${r}" />
+                                        ${r}
+                                    </label>
+                                `).join('')}
                             </div>
                         </div>
-                        <button type="submit" class="btn btn--primary">Add User</button>
+                        <button type="submit" class="btn btn--primary um-submit-btn" id="um-add-btn">
+                            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                                <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                            </svg>
+                            Add User
+                        </button>
                     </div>
                 </form>
             </div>
-            <div class="user-management__list-card">
-                <div id="user-list"></div>
+
+            <!-- User List -->
+            <div class="um-card">
+                <div class="um-card-header">
+                    <p class="um-card-title">All Users</p>
+                    <span class="um-user-count" id="um-count">—</span>
+                </div>
+                <div id="um-user-list">${this._skeletonTable()}</div>
             </div>
-        </div>
-        `;
+
+        </div>`;
     },
 
-    users: [],
+    _skeletonTable() {
+        const row = (widths) =>
+            `<tr>${widths.map(w => `<td><div class="um-skeleton" style="width:${w}"></div></td>`).join('')}</tr>`;
+        return `
+            <table class="user-table">
+                <thead><tr>
+                    <th>Username</th><th>Full Name</th><th>Roles</th>
+                    <th>Status</th><th>Last Login</th><th>Actions</th>
+                </tr></thead>
+                <tbody>
+                    ${row(['80px', '130px', '210px', '65px', '110px', '90px'])}
+                    ${row(['70px', '150px', '170px', '65px', '110px', '90px'])}
+                    ${row(['90px', '120px', '230px', '65px', '110px', '90px'])}
+                </tbody>
+            </table>`;
+    },
+
+    // ─── API ──────────────────────────────────────────────────────────────────
 
     async fetchUsers() {
         const res = await fetch(`${API_BASE}/users/`);
@@ -101,64 +993,125 @@ const UserManagement = {
             this.showToast('Could not load users from server.', 'error');
         }
         this.renderUserList();
+        this._initAddForm();
+    },
 
-        // Role select button logic
-        const roleBtn = document.getElementById('role-select-btn');
-        const roleMenu = document.getElementById('role-checkbox-menu');
-        let selectedRoles = [];
+    _initAddForm() {
+        const form         = document.getElementById('um-add-form');
+        const roleBtn      = document.getElementById('um-role-btn');
+        const roleMenu     = document.getElementById('um-role-menu');
+        const adminToggle  = document.getElementById('um-admin-toggle');
+        const adminNote    = document.getElementById('um-admin-note');
+        // Production-only checkboxes (excludes the admin toggle)
+        const productionCbs = () => Array.from(roleMenu.querySelectorAll('input[type="checkbox"]:not(#um-admin-toggle)'));
 
-        roleBtn.addEventListener('click', (e) => {
+        // ── Toggle dropdown open/close ────────────────────────────
+        roleBtn.addEventListener('click', e => {
             e.preventDefault();
-            roleMenu.style.display = roleMenu.style.display === 'none' ? 'block' : 'none';
+            const open = roleMenu.classList.toggle('open');
+            roleBtn.classList.toggle('open', open);
         });
 
-        // Hide menu when clicking outside
-        document.addEventListener('mousedown', (e) => {
-            if (!roleMenu.contains(e.target) && e.target !== roleBtn) {
-                roleMenu.style.display = 'none';
+        document.addEventListener('mousedown', e => {
+            if (!roleMenu.contains(e.target) && !roleBtn.contains(e.target)) {
+                roleMenu.classList.remove('open');
+                roleBtn.classList.remove('open');
             }
         });
 
-        // Update button text with selected roles (show only first, truncate if needed)
-        roleMenu.addEventListener('change', () => {
-            selectedRoles = Array.from(roleMenu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-            if (selectedRoles.length === 0) {
-                roleBtn.textContent = 'Select Role(s)';
+        // ── Sync button label & badge ─────────────────────────────
+        const syncRoleBtn = () => {
+            const isAdmin     = adminToggle.checked;
+            const prodChecked = productionCbs().filter(cb => cb.checked).map(cb => cb.value);
+            const allSelected = isAdmin ? ['admin', ...prodChecked] : prodChecked;
+
+            const labelEl = roleBtn.querySelector('.um-role-label');
+            let badge = roleBtn.querySelector('.um-role-badge');
+
+            if (allSelected.length === 0) {
+                labelEl.textContent = 'Select role(s)';
+                roleBtn.classList.remove('has-selection');
+                if (badge) badge.remove();
             } else {
-                // Show only the first selected role, truncate if too long
-                let firstRole = selectedRoles[0];
-                if (firstRole.length > 30) {
-                    firstRole = firstRole.slice(0, 27) + '...';
+                labelEl.textContent = isAdmin ? 'Admin' : allSelected[0];
+                roleBtn.classList.add('has-selection');
+                const extra = allSelected.length - 1;
+                if (extra > 0) {
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'um-role-badge';
+                        roleBtn.querySelector('.um-chevron').before(badge);
+                    }
+                    badge.textContent = `+${extra}`;
+                } else if (badge) {
+                    badge.remove();
                 }
-                roleBtn.textContent = firstRole;
             }
+        };
+
+        // ── Admin toggle behaviour ────────────────────────────────
+        // When admin is ON:  show note, disable & uncheck production boxes
+        //                    (admin already includes all pages implicitly)
+        // When admin is OFF: hide note, re-enable production boxes
+        adminToggle.addEventListener('change', () => {
+            const isAdmin = adminToggle.checked;
+            adminNote.classList.toggle('visible', isAdmin);
+            productionCbs().forEach(cb => {
+                cb.closest('label').classList.toggle('um-role-disabled', isAdmin);
+                if (isAdmin) cb.checked = false;
+            });
+            syncRoleBtn();
         });
 
-        form.addEventListener('submit', async (e) => {
+        roleMenu.addEventListener('change', e => {
+            // Don't re-run for admin toggle (handled above)
+            if (e.target === adminToggle) return;
+            syncRoleBtn();
+        });
+
+        // ── Reset helper ──────────────────────────────────────────
+        const resetRoles = () => {
+            adminToggle.checked = false;
+            adminNote.classList.remove('visible');
+            productionCbs().forEach(cb => {
+                cb.checked = false;
+                cb.closest('label').classList.remove('um-role-disabled');
+            });
+            syncRoleBtn();
+        };
+
+        // ── Submit ────────────────────────────────────────────────
+        form.addEventListener('submit', async e => {
             e.preventDefault();
-            // Get selected roles as array
-            selectedRoles = Array.from(roleMenu.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-            if (selectedRoles.length === 0) {
-                alert('Please select at least one role.');
+
+            const isAdmin     = adminToggle.checked;
+            const prodChecked = productionCbs().filter(cb => cb.checked).map(cb => cb.value);
+            // If admin: send only ['admin'] — backend + auth handle page access
+            // If not admin: send selected production roles
+            const assigned_roles = isAdmin ? ['admin'] : prodChecked;
+
+            if (assigned_roles.length === 0) {
+                this.showToast('Please select at least one role.', 'error');
                 return;
             }
-            const user = {
-                username: form.username.value.trim(),
-                full_name: form.full_name.value.trim(),
-                assigned_roles: selectedRoles,
-                is_active: true,
-                password: form.password.value
-            };
+
+            const addBtn = document.getElementById('um-add-btn');
+            addBtn.disabled = true;
+            addBtn.textContent = 'Adding…';
+
             try {
-                const newUser = await this.addUser(user);
+                const newUser = await this.addUser({
+                    username:       document.getElementById('um-username').value.trim(),
+                    full_name:      document.getElementById('um-fullname').value.trim(),
+                    password:       document.getElementById('um-password').value,
+                    assigned_roles,
+                    is_active:      true,
+                });
                 this.users.push(newUser);
                 this.renderUserList();
                 form.reset();
-                // Reset role selection
-                roleMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-                roleBtn.textContent = 'Select Role(s)';
-                selectedRoles = [];
-                UserManagement.showToast('User added successfully.', 'success');
+                resetRoles();
+                this.showToast('User added successfully.', 'success');
             } catch (err) {
                 this.showToast(err.message, 'error');
             } finally {
@@ -267,56 +1220,147 @@ const UserManagement = {
     showEditModal(username) {
         const user = this.users.find(u => u.username === username);
         if (!user) return;
-        let editForm = document.getElementById('edit-user-form');
-        if (editForm) editForm.remove();
-        const container = document.createElement('div');
-        container.id = 'edit-user-form';
-        container.style.background = '#fff';
-        container.style.border = '1px solid #ccc';
-        container.style.borderRadius = '8px';
-        container.style.padding = '24px';
-        container.style.margin = '24px auto';
-        container.style.maxWidth = '480px';
-        container.style.boxShadow = '0 4px 24px rgba(0,0,0,0.08)';
-        container.innerHTML = `
-            <h2 style="margin-top:0;">Edit User</h2>
-            <form id="edit-user-detail-form">
-                <label>Username:<input type="text" name="username" value="${user.username}" required class="form-input" readonly /></label><br><br>
-                <label>Full Name:<input type="text" name="full_name" value="${user.full_name}" required class="form-input" /></label><br><br>
-                <label>Roles:<input type="text" name="assigned_roles" value="${user.assigned_roles.join(', ')}" required class="form-input" /></label><br><br>
-                <label>Active:<input type="checkbox" name="is_active" ${user.is_active ? 'checked' : ''} /></label><br><br>
-                <button type="submit" class="btn btn--primary">Save</button>
-                <button type="button" id="cancel-edit-user" class="btn">Cancel</button>
-            </form>
-        `;
-        document.body.appendChild(container);
-        document.getElementById('cancel-edit-user').onclick = () => {
-            container.remove();
-            // Reset add user form after closing edit modal
-            const addUserForm = document.getElementById('add-user-form');
-            if (addUserForm) {
-                addUserForm.reset();
-                // Also reset role selection UI
-                const roleMenu = document.getElementById('role-checkbox-menu');
-                const roleBtn = document.getElementById('role-select-btn');
-                if (roleMenu) roleMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-                if (roleBtn) roleBtn.textContent = 'Select Role(s)';
-            }
+        this._removeBackdrop();
+
+        const currentRoles = Array.isArray(user.assigned_roles)
+            ? user.assigned_roles : [user.assigned_roles];
+
+        const isCurrentlyAdmin = currentRoles.includes('admin');
+
+        // Production checkboxes — disabled + unchecked when admin is on
+        const prodCheckboxes = PRODUCTION_ROLES.map(r => `
+            <label class="${isCurrentlyAdmin ? 'um-role-disabled' : ''}">
+                <input type="checkbox" value="${r}"
+                    ${currentRoles.includes(r) ? 'checked' : ''}
+                    ${isCurrentlyAdmin ? 'disabled' : ''} />
+                ${r}
+            </label>`).join('');
+
+        const backdrop = this._createBackdrop(`
+            <div class="um-modal" id="um-modal-box" role="dialog" aria-modal="true" aria-labelledby="um-modal-title">
+                <div class="um-modal-header">
+                    <h2 class="um-modal-title" id="um-modal-title">Edit User</h2>
+                    <button class="um-modal-close" id="um-modal-close">&#x2715;</button>
+                </div>
+                <form id="um-edit-form">
+                    <div class="um-modal-field">
+                        <label class="um-modal-label">Username</label>
+                        <input class="form-input" value="${user.username}" readonly />
+                    </div>
+                    <div class="um-modal-field">
+                        <label class="um-modal-label" for="um-edit-fullname">Full Name</label>
+                        <input type="text" id="um-edit-fullname" class="form-input"
+                               value="${user.full_name}" required />
+                    </div>
+                    <div class="um-modal-field">
+                        <label class="um-modal-label">Assigned Roles</label>
+                        <!-- Admin toggle -->
+                        <div class="um-role-menu-admin" style="border:1px solid var(--color-border-input);border-radius:var(--radius-md) var(--radius-md) 0 0;margin-bottom:0;">
+                            <div class="um-role-menu-admin-left">
+                                <div class="um-admin-icon">&#9670;</div>
+                                <div>
+                                    <div class="um-admin-label-text">Admin</div>
+                                    <div class="um-admin-sublabel">Full access — all pages included</div>
+                                </div>
+                            </div>
+                            <label class="um-toggle">
+                                <input type="checkbox" id="um-edit-admin-toggle" ${isCurrentlyAdmin ? 'checked' : ''} />
+                                <span class="um-toggle-track"></span>
+                            </label>
+                        </div>
+                        <!-- Admin note -->
+                        <div class="um-admin-pages-note${isCurrentlyAdmin ? ' visible' : ''}" id="um-edit-admin-note"
+                             style="margin:0;border-radius:0;border-top:none;border-bottom:none;">
+                            &#10003;&nbsp; Automatically includes: Dashboard, Cell Inventory, Battery Traceability, User Management + all production pages.
+                        </div>
+                        <!-- Production roles -->
+                        <div class="um-role-menu-section-header"
+                             style="border:1px solid var(--color-border-input);border-top:none;">
+                            Production Pages
+                        </div>
+                        <div class="um-modal-role-grid" id="um-edit-roles"
+                             style="border-top:none;border-radius:0 0 var(--radius-md) var(--radius-md);">
+                            ${prodCheckboxes}
+                        </div>
+                    </div>
+                    <div class="um-modal-field">
+                        <label class="um-modal-label">Account Status</label>
+                        <div class="um-toggle-row">
+                            <label class="um-toggle">
+                                <input type="checkbox" id="um-edit-active"
+                                       ${user.is_active !== false ? 'checked' : ''} />
+                                <span class="um-toggle-track"></span>
+                            </label>
+                            <span class="um-toggle-label" id="um-active-label">
+                                ${user.is_active !== false ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="um-modal-footer">
+                        <button type="button" class="btn btn--ghost" id="um-modal-cancel">Cancel</button>
+                        <button type="submit" class="btn btn--primary" id="um-modal-save">Save Changes</button>
+                    </div>
+                </form>
+            </div>`);
+
+        // ── Active toggle ─────────────────────────────────────────
+        const activeToggle = document.getElementById('um-edit-active');
+        const activeLabel  = document.getElementById('um-active-label');
+        activeToggle.addEventListener('change', () => {
+            activeLabel.textContent = activeToggle.checked ? 'Active' : 'Inactive';
+        });
+
+        // ── Admin toggle in modal ─────────────────────────────────
+        const editAdminToggle = document.getElementById('um-edit-admin-toggle');
+        const editAdminNote   = document.getElementById('um-edit-admin-note');
+
+        const syncEditAdminToggle = () => {
+            const on = editAdminToggle.checked;
+            editAdminNote.classList.toggle('visible', on);
+            document.getElementById('um-edit-roles').querySelectorAll('input[type="checkbox"]')
+                .forEach(cb => {
+                    cb.closest('label').classList.toggle('um-role-disabled', on);
+                    cb.disabled = on;
+                    if (on) cb.checked = false;
+                });
         };
-        document.getElementById('edit-user-detail-form').onsubmit = async (e) => {
+
+        editAdminToggle.addEventListener('change', syncEditAdminToggle);
+
+        // ── Close ─────────────────────────────────────────────────
+        const closeModal = () => this._removeBackdrop();
+        document.getElementById('um-modal-close').addEventListener('click', closeModal);
+        document.getElementById('um-modal-cancel').addEventListener('click', closeModal);
+        backdrop.addEventListener('mousedown', e => {
+            if (!document.getElementById('um-modal-box').contains(e.target)) closeModal();
+        });
+
+        // ── Submit ────────────────────────────────────────────────
+        document.getElementById('um-edit-form').addEventListener('submit', async e => {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            // Only send fields that are editable
-            const patchData = {
-                full_name: formData.get('full_name'),
-                assigned_roles: formData.get('assigned_roles').split(',').map(r => r.trim()),
-                is_active: formData.get('is_active') === 'on',
-            };
+
+            const isAdmin = editAdminToggle.checked;
+            const prodSelected = Array.from(
+                document.getElementById('um-edit-roles').querySelectorAll('input:checked')
+            ).map(cb => cb.value);
+
+            // If admin: send only ['admin']; otherwise send selected production roles
+            const assigned_roles = isAdmin ? ['admin'] : prodSelected;
+
+            if (assigned_roles.length === 0) {
+                this.showToast('Please select at least one role.', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('um-modal-save');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving…';
+
             try {
-                const res = await fetch(`${API_BASE}/users/${encodeURIComponent(user.username)}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(patchData)
+                const updated = await this.patchUser(user.username, {
+                    full_name:      document.getElementById('um-edit-fullname').value.trim(),
+                    assigned_roles,
+                    is_active:      activeToggle.checked,
                 });
                 const idx = this.users.findIndex(u => u.username === user.username);
                 if (idx !== -1) this.users[idx] = updated;
