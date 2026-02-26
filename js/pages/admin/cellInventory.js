@@ -1,505 +1,802 @@
 /**
  * cellInventory.js — Cell Inventory Status (Admin)
- * 
- * View all registered cells with their current status,
- * grading results, and assignment to battery packs.
- * Filterable, paginated table.
- * 
- * API: GET /api/v1/admin/cells/inventory
+ *
+ * Responsive redesign — consistent with traceability.js:
+ *   ✓ CSS Grid filter bar — no drift on resize
+ *   ✓ Native <select> styled cleanly — no floating DOM panels
+ *   ✓ Table in overflow-x:auto wrapper — never breaks layout
+ *   ✓ Full colour-coded status badges matching backend values
+ *   ✓ All selectors prefixed .ci- to prevent style leaks
+ *   ✓ voltage + ir columns added (returned by API)
+ *   ✓ Shimmer skeleton on load
  */
 
 import API from '../../core/api.js';
-import Table from '../../components/table.js';
-import StatusBadge from '../../components/statusBadge.js';
 import Pagination from '../../components/pagination.js';
 
+/* ─────────────────────────────────────────────────────────────
+   Badge renderer — colour coded for all cell inventory statuses
+───────────────────────────────────────────────────────────── */
+function _badge(val) {
+    if (val == null || val === '') return '<span style="color:var(--color-text-tertiary)">—</span>';
+
+    const v = String(val).trim().toUpperCase();
+
+    const GREEN  = 'background:#E6F4EC;color:#1A6B3C;border:1px solid #A8D5BA;';
+    const ORANGE = 'background:#FFF3E0;color:#B45309;border:1px solid #FCD38A;';
+    const RED    = 'background:#FDECEA;color:#B71C1C;border:1px solid #F5C0BE;';
+    const BLUE   = 'background:#E3F0FF;color:#1565C0;border:1px solid #AECEF7;';
+    const GREY   = 'background:var(--color-bg-body);color:var(--color-text-secondary);border:1px solid var(--color-border);';
+
+    let style = GREY, dot = '';
+
+    switch (v) {
+        case 'GRADED':    style = GREEN;  dot = '● '; break;
+        case 'ASSIGNED':  style = BLUE;   dot = '● '; break;
+        case 'REGISTERED':style = ORANGE; dot = '○ '; break;
+        case 'FAILED':    style = RED;    dot = '● '; break;
+        default:          style = GREY;               break;
+    }
+
+    return `<span style="
+        display:inline-flex;align-items:center;gap:3px;
+        padding:3px 10px;border-radius:20px;
+        font-size:11px;font-weight:600;letter-spacing:0.3px;
+        white-space:nowrap;${style}
+    ">${dot}${val}</span>`;
+}
+
 const CellInventory = {
+
     render() {
         return `
-            <div class="content__inner">
-                <div class="page-header">
-                    <h1 class="page-header__title">Cell Inventory Status</h1>
-                    <p class="page-header__subtitle">View all registered cells, their grading status and assignment</p>
+        <style>
+            /* ── Reset ── */
+            .ci-page *, .ci-page *::before, .ci-page *::after { box-sizing: border-box; }
+
+            /* ── Page wrapper ── */
+            .ci-page {
+                padding: var(--content-padding, 24px);
+                font-family: var(--font-family);
+                animation: ci-fade 0.22s ease both;
+            }
+
+            @keyframes ci-fade {
+                from { opacity: 0; transform: translateY(6px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+
+            /* ── Header ── */
+            .ci-header { margin-bottom: 24px; }
+
+            .ci-header h1 {
+                font-size: var(--text-xl);
+                font-weight: var(--weight-bold);
+                color: var(--color-text-primary);
+                margin: 0 0 4px;
+                line-height: 1.25;
+            }
+
+            .ci-header p {
+                font-size: var(--text-sm);
+                color: var(--color-text-secondary);
+                margin: 0;
+            }
+
+            /* ════════════════════════
+               FILTER CARD
+            ════════════════════════ */
+            .ci-filter-card {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-sm);
+                padding: 20px 24px 14px;
+                margin-bottom: 16px;
+            }
+
+            .ci-filter-eyebrow {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 14px;
+            }
+
+            /*
+             * CSS Grid — 6 defined columns on desktop.
+             * Collapses cleanly at two breakpoints.
+             * Desktop: [Cell ID wide] [From] [To] [Brand] [Status] [Btn]
+             * Tablet:  3-col, btn spans full row
+             * Mobile:  1-col stack
+             */
+            .ci-filter-grid {
+                display: grid;
+                grid-template-columns: 2fr 1fr 1fr 1.2fr 1.2fr auto;
+                gap: 12px;
+                align-items: end;
+            }
+
+            @media (max-width: 1100px) {
+                .ci-filter-grid { grid-template-columns: 1fr 1fr 1fr; }
+                .ci-btn-col     { grid-column: 1 / -1; }
+            }
+
+            @media (max-width: 640px) {
+                .ci-filter-grid { grid-template-columns: 1fr; }
+                .ci-btn-col     { grid-column: 1; }
+                .ci-filter-card { padding: 16px 16px 12px; }
+            }
+
+            .ci-field {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                min-width: 0;
+            }
+
+            .ci-label {
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                white-space: nowrap;
+            }
+
+            .ci-input-wrap {
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+
+            .ci-input-icon {
+                position: absolute;
+                left: 10px;
+                color: var(--color-text-tertiary);
+                display: flex;
+                align-items: center;
+                pointer-events: none;
+                z-index: 1;
+            }
+
+            /* Shared control base */
+            .ci-ctrl {
+                width: 100%;
+                height: 40px;
+                background: var(--color-bg-input);
+                border: 1.5px solid var(--color-border-input);
+                border-radius: var(--radius-md);
+                color: var(--color-text-primary);
+                font-family: var(--font-family);
+                font-size: var(--text-sm);
+                padding: 0 12px;
+                outline: none;
+                transition: border-color 140ms ease, box-shadow 140ms ease;
+            }
+
+            .ci-ctrl:focus {
+                border-color: var(--color-primary);
+                box-shadow: 0 0 0 3px var(--color-primary-surface);
+            }
+
+            .ci-ctrl::placeholder { color: var(--color-text-tertiary); }
+            .ci-ctrl--icon { padding-left: 34px; }
+
+            /* Native select */
+            .ci-ctrl.ci-select {
+                appearance: none;
+                -webkit-appearance: none;
+                cursor: pointer;
+                background-image: url("data:image/svg+xml,%3Csvg width='11' height='7' viewBox='0 0 11 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%238B90A0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 11px center;
+                padding-right: 30px;
+            }
+
+            /* Search button */
+            .ci-search-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 7px;
+                height: 40px;
+                width: 100%;
+                padding: 0 20px;
+                background: var(--color-primary);
+                color: #fff;
+                border: none;
+                border-radius: var(--radius-md);
+                font-family: var(--font-family);
+                font-size: var(--text-sm);
+                font-weight: 600;
+                cursor: pointer;
+                white-space: nowrap;
+                box-shadow: 0 1px 4px rgba(27,58,92,0.18);
+                transition: background 140ms ease, box-shadow 140ms ease, transform 100ms ease;
+            }
+
+            .ci-search-btn:hover  { background: var(--color-primary-light); box-shadow: 0 3px 10px rgba(27,58,92,0.24); }
+            .ci-search-btn:active { transform: scale(0.98); }
+
+            /* Clear link */
+            .ci-clear-row {
+                display: flex;
+                justify-content: flex-end;
+                margin-top: 10px;
+            }
+
+            .ci-clear-btn {
+                background: none;
+                border: none;
+                font-family: var(--font-family);
+                font-size: 12px;
+                color: var(--color-text-tertiary);
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 0;
+                transition: color 140ms ease;
+            }
+            .ci-clear-btn:hover { color: var(--color-text-primary); }
+
+            /* ════════════════════════
+               STATS BAR
+            ════════════════════════ */
+            .ci-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                gap: 12px;
+                margin-bottom: 16px;
+            }
+
+            .ci-stat {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                padding: 14px 18px;
+                box-shadow: var(--shadow-sm);
+            }
+
+            .ci-stat-label {
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                margin-bottom: 4px;
+            }
+
+            .ci-stat-value {
+                font-size: 22px;
+                font-weight: 700;
+                color: var(--color-text-primary);
+                line-height: 1.2;
+            }
+
+            .ci-stat-sub {
+                font-size: 11px;
+                color: var(--color-text-tertiary);
+                margin-top: 2px;
+            }
+
+            /* ════════════════════════
+               RESULTS CARD
+            ════════════════════════ */
+            .ci-card {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-sm);
+                overflow: hidden;
+            }
+
+            .ci-card-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 14px 20px;
+                border-bottom: 1px solid var(--color-border-light);
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .ci-card-title {
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin: 0;
+            }
+
+            .ci-count {
+                font-size: 11px;
+                font-weight: 600;
+                color: var(--color-text-tertiary);
+                background: var(--color-bg-body);
+                border: 1px solid var(--color-border);
+                border-radius: 20px;
+                padding: 2px 10px;
+            }
+
+            /* Horizontal scroll wrapper */
+            .ci-scroll {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .ci-table {
+                width: 100%;
+                border-collapse: collapse;
+                min-width: 680px;
+            }
+
+            .ci-table thead {
+                background: var(--color-bg-table-header);
+                position: sticky;
+                top: 0;
+                z-index: 2;
+            }
+
+            .ci-table th {
+                padding: 10px 14px;
+                text-align: left;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                border-bottom: 1px solid var(--color-border);
+                white-space: nowrap;
+            }
+
+            .ci-table td {
+                padding: 11px 14px;
+                font-size: var(--text-sm);
+                color: var(--color-text-primary);
+                border-bottom: 1px solid var(--color-border-light);
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+
+            .ci-table tbody tr:last-child td { border-bottom: none; }
+
+            .ci-table tbody tr {
+                transition: background 120ms ease;
+            }
+
+            .ci-table tbody tr:hover td {
+                background: var(--color-bg-table-row-hover);
+            }
+
+            /* Mono text */
+            .ci-mono {
+                font-family: var(--font-mono);
+                font-size: 12px;
+                font-weight: 500;
+            }
+
+            /* Numeric cells — right-aligned */
+            .ci-num {
+                font-family: var(--font-mono);
+                font-size: 12px;
+                color: var(--color-text-secondary);
+                text-align: right;
+            }
+
+            .ci-table th.ci-th-num { text-align: right; }
+
+            /* Skeleton shimmer */
+            @keyframes ci-shimmer {
+                0%   { background-position: -800px 0; }
+                100% { background-position:  800px 0; }
+            }
+
+            .ci-skel {
+                display: inline-block;
+                height: 12px;
+                border-radius: 4px;
+                background: linear-gradient(
+                    90deg,
+                    var(--color-border-light) 25%,
+                    var(--color-border)       50%,
+                    var(--color-border-light) 75%
+                );
+                background-size: 1600px 100%;
+                animation: ci-shimmer 1.4s ease-in-out infinite;
+            }
+
+            /* Empty state */
+            .ci-empty {
+                text-align: center;
+                padding: 52px 24px;
+                color: var(--color-text-tertiary);
+            }
+            .ci-empty svg { opacity: 0.22; margin-bottom: 14px; }
+            .ci-empty-ttl {
+                font-size: var(--text-base);
+                font-weight: 600;
+                color: var(--color-text-secondary);
+                margin: 0 0 4px;
+            }
+            .ci-empty-sub { font-size: var(--text-sm); margin: 0; }
+
+            /* Pagination */
+            .ci-pag { padding: 14px 20px; border-top: 1px solid var(--color-border-light); }
+        </style>
+
+        <div class="ci-page">
+
+            <!-- Header -->
+            <div class="ci-header">
+                <h1>Cell Inventory</h1>
+                <p>All registered cells with grading status, brand, and assignment</p>
+            </div>
+
+            <!-- Filter Card -->
+            <div class="ci-filter-card">
+                <div class="ci-filter-eyebrow">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
+                    Search &amp; Filter
                 </div>
 
-                <!-- Filters -->
-                <div class="filter-bar">
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">CELL ID</label>
-                                                <div style="position: relative; width: 100%;">
-                                                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; height: 100%; pointer-events: none;">
-                                                                <!-- Colored Battery SVG Icon -->
-                                                                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                    <rect x="5" y="4" width="12" height="14" rx="2" fill="url(#cell-battery-gradient)" stroke="#888" stroke-width="1.2"/>
-                                                                    <rect x="9" y="2.5" width="4" height="2" rx="1" fill="#B0BEC5" stroke="#888" stroke-width="0.7"/>
-                                                                    <rect x="10.25" y="8.5" width="1.5" height="4" rx="0.75" fill="#fff"/>
-                                                                    <rect x="10.25" y="14" width="1.5" height="1.5" rx="0.75" fill="#fff"/>
-                                                                    <defs>
-                                                                        <linearGradient id="cell-battery-gradient" x1="5" y1="4" x2="17" y2="18" gradientUnits="userSpaceOnUse">
-                                                                            <stop stop-color="#B9F6CA"/>
-                                                                            <stop offset="1" stop-color="#B2EBF2"/>
-                                                                        </linearGradient>
-                                                                    </defs>
-                                                                </svg>
-                                                        </span>
-                                                        <input type="text" id="inv-cell-id" class="filter-bar__input" placeholder="Scan or Enter Cell ID" style="padding-left: 38px; height: 44px; font-size: 1.08em;" />
-                                                </div>
+                <div class="ci-filter-grid">
+
+                    <!-- Cell ID -->
+                    <div class="ci-field">
+                        <label class="ci-label" for="ci-cell-id">Cell ID</label>
+                        <div class="ci-input-wrap">
+                            <span class="ci-input-icon">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                                    <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+                                    <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+                                </svg>
+                            </span>
+                            <input
+                                type="text"
+                                id="ci-cell-id"
+                                class="ci-ctrl ci-ctrl--icon"
+                                placeholder="Scan or type Cell ID…"
+                                autocomplete="off"
+                                spellcheck="false"
+                            />
+                        </div>
                     </div>
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">Date From</label>
-                        <input type="date" id="inv-date-from" class="filter-bar__input">
+
+                    <!-- From date -->
+                    <div class="ci-field">
+                        <label class="ci-label" for="ci-dfrom">From Date</label>
+                        <input type="date" id="ci-dfrom" class="ci-ctrl" />
                     </div>
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">To</label>
-                        <input type="date" id="inv-date-to" class="filter-bar__input">
+
+                    <!-- To date -->
+                    <div class="ci-field">
+                        <label class="ci-label" for="ci-dto">To Date</label>
+                        <input type="date" id="ci-dto" class="ci-ctrl" />
                     </div>
-                    <div class="filter-bar__group filter-bar__group--center">
-                        <label class="filter-bar__label">Brand Name</label>
-                        <select id="inv-model" class="filter-bar__input form-select">
-                            <option value="">All</option>
+
+                    <!-- Brand -->
+                    <div class="ci-field">
+                        <label class="ci-label" for="ci-brand">Brand</label>
+                        <select id="ci-brand" class="ci-ctrl ci-select">
+                            <option value="">All Brands</option>
                         </select>
                     </div>
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">Status</label>
-                        <select id="inv-status" class="filter-bar__input form-select">
-                            <option value="">All</option>
+
+                    <!-- Status -->
+                    <div class="ci-field">
+                        <label class="ci-label" for="ci-status">Status</label>
+                        <select id="ci-status" class="ci-ctrl ci-select">
+                            <option value="">All Statuses</option>
                             <option value="REGISTERED">Registered</option>
-                            <option value="GRADED">Graded</option>
-                            <option value="TESTED">Tested</option>
+                            <option value="GRADED">Graded (Pass)</option>
                             <option value="ASSIGNED">Assigned to Pack</option>
                             <option value="FAILED">Failed</option>
                         </select>
                     </div>
-                    <button id="btn-inv-search" class="btn btn--primary">Apply Filters</button>
+
+                    <!-- Search button -->
+                    <div class="ci-field ci-btn-col">
+                        <label class="ci-label" style="visibility:hidden" aria-hidden="true">Search</label>
+                        <button id="ci-search" class="ci-search-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            Apply Filters
+                        </button>
+                    </div>
+
                 </div>
 
-                <!-- Table -->
-                <div id="inv-table">
-                    <div class="page-loader"><div class="spinner"></div></div>
+                <div class="ci-clear-row">
+                    <button class="ci-clear-btn" id="ci-clear">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+                        </svg>
+                        Clear filters
+                    </button>
                 </div>
-
-                <div id="inv-pagination"></div>
             </div>
-        `;
+
+            <!-- Stats injected by JS -->
+            <div id="ci-stats"></div>
+
+            <!-- Results -->
+            <div class="ci-card">
+                <div class="ci-card-header">
+                    <p class="ci-card-title">Cell Records</p>
+                    <span class="ci-count" id="ci-count">—</span>
+                </div>
+                <div class="ci-scroll">
+                    <div id="ci-results">${_emptyHtml('Loading cell inventory…')}</div>
+                </div>
+                <div class="ci-pag" id="ci-pag"></div>
+            </div>
+
+        </div>`;
     },
 
+    /* ═══════════════════════════════════════════════════ */
+
     async init() {
+        let page = 1;
 
-            let currentPage = 1;
-            // On page load, set date from and to to today for initial fetch
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            const todayStr = `${yyyy}-${mm}-${dd}`;
-            let dateFromInput = document.getElementById('inv-date-from');
-            let dateToInput = document.getElementById('inv-date-to');
-            if (dateFromInput) dateFromInput.value = todayStr;
-            if (dateToInput) dateToInput.value = todayStr;
-            _fetchInventory(currentPage);
+        /* Set today's date as default range */
+        const today = _isoToday();
+        const dfromEl = document.getElementById('ci-dfrom');
+        const dtoEl   = document.getElementById('ci-dto');
+        if (dfromEl) dfromEl.value = today;
+        if (dtoEl)   dtoEl.value   = today;
 
-            const searchBtn = document.getElementById('btn-inv-search');
-            const cellInput = document.getElementById('inv-cell-id');
-            dateFromInput = document.getElementById('inv-date-from');
-            dateToInput = document.getElementById('inv-date-to');
-            const statusSelect = document.getElementById('inv-status');
-            const modelSelect = document.getElementById('inv-model');
+        /* Load brands dropdown */
+        await _loadBrands();
 
-            // Dynamically load brands from backend and populate dropdown
-            async function loadBrandsDropdown() {
-                const result = await API.get('/admin/cells/brands');
-                if (result.success && Array.isArray(result.data)) {
-                    // Remove all except first option (All Brands)
-                    while (modelSelect.options.length > 1) {
-                        modelSelect.remove(1);
-                    }
-                    result.data.forEach(brand => {
-                        const opt = document.createElement('option');
-                        opt.value = brand;
-                        opt.text = brand;
-                        modelSelect.appendChild(opt);
-                    });
-                }
-            }
-            await loadBrandsDropdown();
+        /* Initial data fetch */
+        await _fetch(1);
 
-            searchBtn.addEventListener('click', () => {
-                currentPage = 1;
-                _fetchInventory(currentPage);
-            });
+        /* Event listeners */
+        document.getElementById('ci-search').addEventListener('click', () => { page = 1; _fetch(1); });
 
-            // Enter key triggers search for Cell ID
-            if (cellInput) cellInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { currentPage = 1; _fetchInventory(currentPage); } });
+        document.getElementById('ci-cell-id').addEventListener('keydown', e => {
+            if (e.key === 'Enter') { page = 1; _fetch(1); }
+        });
 
-            // datepicker popup for the From/To inputs (shared, active input like traceability)
-            let activeDateInput = null;
-            let datepickerEl = null;
-            let dpState = { year: null, month: null, selected: null };
+        document.getElementById('ci-clear').addEventListener('click', () => {
+            document.getElementById('ci-cell-id').value = '';
+            document.getElementById('ci-dfrom').value   = '';
+            document.getElementById('ci-dto').value     = '';
+            document.getElementById('ci-brand').value   = '';
+            document.getElementById('ci-status').value  = '';
+            page = 1;
+            _fetch(1);
+        });
 
-        function formatISO(y, m, d) {
-            const mm = String(m).padStart(2,'0');
-            const dd = String(d).padStart(2,'0');
-            return `${y}-${mm}-${dd}`;
-        }
-
-        const _MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-        function openDatepicker() {
-            if (!activeDateInput) return;
-            if (datepickerEl) return;
-            datepickerEl = document.createElement('div');
-            datepickerEl.className = 'datepicker-popup';
-
-            const current = activeDateInput.value ? new Date(activeDateInput.value) : new Date();
-            dpState.year = current.getFullYear();
-            dpState.month = current.getMonth();
-            dpState.selected = activeDateInput.value || '';
-
-            const monthLabel = `${_MONTH_NAMES[dpState.month]} ${dpState.year}`;
-            datepickerEl.innerHTML = `
-                <div class="datepicker-header">
-                    <div>
-                        <div class="datepicker-month">${monthLabel}</div>
-                    </div>
-                    <div class="datepicker-nav">
-                        <button class="datepicker-btn" data-action="prev" aria-label="Previous month">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-                        </button>
-                        <button class="datepicker-btn" data-action="next" aria-label="Next month">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="datepicker-grid" id="dp-grid"></div>
-                <div class="datepicker-footer">
-                    <div class="datepicker-action" id="dp-clear">Clear</div>
-                    <div style="display:flex;gap:12px;"><div class="datepicker-action" id="dp-today">Today</div></div>
-                </div>
-            `;
-
-            document.body.appendChild(datepickerEl);
-            positionDatepicker();
-            renderCalendar(dpState.year, dpState.month);
-
-            datepickerEl.querySelector('[data-action="prev"]').addEventListener('click', () => {
-                dpState.month -= 1;
-                if (dpState.month < 0) { dpState.month = 11; dpState.year -= 1; }
-                renderCalendar(dpState.year, dpState.month);
-            });
-            datepickerEl.querySelector('[data-action="next"]').addEventListener('click', () => {
-                dpState.month += 1;
-                if (dpState.month > 11) { dpState.month = 0; dpState.year += 1; }
-                renderCalendar(dpState.year, dpState.month);
-            });
-
-            datepickerEl.querySelector('#dp-clear').addEventListener('click', () => {
-                if (activeDateInput) activeDateInput.value = '';
-                closeDatepicker();
-            });
-            datepickerEl.querySelector('#dp-today').addEventListener('click', () => {
-                const t = new Date();
-                if (activeDateInput) activeDateInput.value = formatISO(t.getFullYear(), t.getMonth()+1, t.getDate());
-                closeDatepicker();
-            });
-
-            setTimeout(() => { window.addEventListener('click', outsideClickHandler); }, 0);
-        }
-
-        function positionDatepicker() {
-            if (!activeDateInput || !datepickerEl) return;
-            const rect = activeDateInput.getBoundingClientRect();
-            const top = rect.bottom + window.scrollY + 8;
-            const left = rect.left + window.scrollX;
-            datepickerEl.style.top = `${top}px`;
-            datepickerEl.style.left = `${left}px`;
-        }
-
-        function outsideClickHandler(e) { if (!datepickerEl) return; if (datepickerEl.contains(e.target) || e.target === activeDateInput) return; closeDatepicker(); }
-
-        function closeDatepicker() { if (!datepickerEl) return; window.removeEventListener('click', outsideClickHandler); datepickerEl.remove(); datepickerEl = null; }
-
-        function renderCalendar(year, month) {
-            if (!datepickerEl) return;
-            const grid = datepickerEl.querySelector('#dp-grid');
-            const headerLabel = datepickerEl.querySelector('.datepicker-month');
-            if (headerLabel) headerLabel.textContent = `${_MONTH_NAMES[month]} ${year}`;
-            grid.innerHTML = '';
-
-            const weekDays = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-            weekDays.forEach(d => { const w = document.createElement('div'); w.className = 'datepicker-weekday'; w.textContent = d; grid.appendChild(w); });
-
-            const first = new Date(year, month, 1);
-            const startDay = first.getDay();
-            const daysInMonth = new Date(year, month+1, 0).getDate();
-
-            for (let i=0;i<startDay;i++) { const b = document.createElement('div'); b.className = 'datepicker-day disabled'; grid.appendChild(b); }
-
-            for (let d=1; d<=daysInMonth; d++) {
-                const el = document.createElement('div');
-                el.className = 'datepicker-day';
-                el.textContent = d;
-                const iso = formatISO(year, month+1, d);
-                if (activeDateInput && activeDateInput.value === iso) el.classList.add('selected');
-                const today = new Date();
-                if (today.getFullYear()===year && today.getMonth()===month && today.getDate()===d) el.classList.add('today');
-                el.addEventListener('click', () => { if (activeDateInput) activeDateInput.value = iso; closeDatepicker(); });
-                grid.appendChild(el);
-            }
-        }
-
-        if (dateFromInput) dateFromInput.addEventListener('click', (e) => { e.stopPropagation(); activeDateInput = dateFromInput; if (!datepickerEl) openDatepicker(); else closeDatepicker(); });
-        if (dateToInput) dateToInput.addEventListener('click', (e) => { e.stopPropagation(); activeDateInput = dateToInput; if (!datepickerEl) openDatepicker(); else closeDatepicker(); });
-        window.addEventListener('resize', () => { if (datepickerEl) positionDatepicker(); });
-        window.addEventListener('scroll', () => { if (datepickerEl) positionDatepicker(); }, true);
-
-        // initialize modern dropdowns for status and model selects
-        if (statusSelect) createModernDropdown(statusSelect);
-        if (modelSelect) createModernDropdown(modelSelect);
-
-        function createModernDropdown(nativeSelect) {
-            nativeSelect.classList.add('modern-dropdown-hidden-native');
-
-            const wrapper = document.createElement('div');
-            wrapper.className = 'modern-dropdown';
-            wrapper.setAttribute('role', 'combobox');
-            wrapper.setAttribute('aria-expanded', 'false');
-
-            const trigger = document.createElement('button');
-            trigger.type = 'button';
-            trigger.className = 'modern-dropdown__trigger';
-            trigger.setAttribute('aria-haspopup', 'listbox');
-
-            const label = document.createElement('span');
-            label.className = 'modern-dropdown__label';
-            const selectedOption = nativeSelect.options[nativeSelect.selectedIndex];
-            label.textContent = selectedOption ? selectedOption.text : 'All';
-
-            const arrow = document.createElement('span');
-            arrow.className = 'modern-dropdown__arrow';
-            arrow.innerHTML = '<svg width="16" height="10" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 3.5L10 11L18 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
-            trigger.appendChild(label);
-            trigger.appendChild(arrow);
-
-            const panel = document.createElement('div');
-            panel.className = 'modern-dropdown__panel';
-            panel.setAttribute('role', 'listbox');
-            panel.setAttribute('tabindex', '-1');
-
-            const list = document.createElement('div');
-            list.className = 'modern-dropdown__list';
-
-            const options = Array.from(nativeSelect.options).map((opt, idx) => {
-                const o = document.createElement('div');
-                o.className = 'modern-dropdown__option' + (opt.disabled ? ' disabled' : '');
-                if (opt.selected) o.classList.add('selected');
-                o.setAttribute('data-value', opt.value);
-                o.setAttribute('data-index', String(idx));
-                o.setAttribute('role', 'option');
-                o.textContent = opt.text;
-                list.appendChild(o);
-                return o;
-            });
-
-            panel.appendChild(list);
-            wrapper.appendChild(trigger);
-            // insert wrapper (trigger) next to native select; panel will be appended to body
-            nativeSelect.parentNode.insertBefore(wrapper, nativeSelect.nextSibling);
-            document.body.appendChild(panel);
-
-            let open = false;
-            let activeIndex = nativeSelect.selectedIndex >= 0 ? nativeSelect.selectedIndex : 0;
-
-            function positionPanel() {
-                const rect = trigger.getBoundingClientRect();
-                const top = rect.bottom + window.scrollY + 8;
-                const left = rect.left + window.scrollX;
-                panel.style.position = 'absolute';
-                panel.style.top = `${top}px`;
-                panel.style.left = `${left}px`;
-                panel.style.minWidth = `${rect.width}px`;
-                panel.style.zIndex = 2000;
-            }
-
-            function openPanel() {
-                wrapper.classList.add('open');
-                wrapper.setAttribute('aria-expanded', 'true');
-                // show panel appended to body
-                panel.style.display = 'block';
-                panel.style.opacity = '1';
-                panel.style.transform = 'translateY(0)';
-                panel.style.pointerEvents = 'auto';
-                positionPanel();
-                open = true;
-                updateActive();
-                document.addEventListener('click', onDocClick);
-                window.addEventListener('resize', positionPanel);
-                window.addEventListener('scroll', positionPanel, true);
-            }
-
-            function closePanel() {
-                wrapper.classList.remove('open');
-                wrapper.setAttribute('aria-expanded', 'false');
-                panel.style.opacity = '0';
-                panel.style.transform = 'translateY(-8px)';
-                panel.style.pointerEvents = 'none';
-                setTimeout(() => { if (!open) panel.style.display = 'none'; }, 220);
-                open = false;
-                document.removeEventListener('click', onDocClick);
-                window.removeEventListener('resize', positionPanel);
-                window.removeEventListener('scroll', positionPanel, true);
-            }
-
-            function onDocClick(e) { if (!wrapper.contains(e.target) && !panel.contains(e.target)) closePanel(); }
-
-            function updateActive() {
-                options.forEach((o, i) => {
-                    o.classList.toggle('selected', i === activeIndex);
-                    o.setAttribute('aria-selected', String(i === activeIndex));
-                    if (i === activeIndex) {
-                        if (list && list.scrollHeight > list.clientHeight) {
-                            list.scrollTop = Math.max(0, o.offsetTop - Math.round(list.clientHeight / 2) + Math.round(o.clientHeight / 2));
-                        }
-                    }
+        /* ── Brands dropdown ── */
+        async function _loadBrands() {
+            const res = await API.get('/admin/cells/brands');
+            if (res?.success && Array.isArray(res.data)) {
+                const sel = document.getElementById('ci-brand');
+                // Remove existing options beyond "All Brands"
+                while (sel.options.length > 1) sel.remove(1);
+                res.data.forEach(brand => {
+                    const opt = document.createElement('option');
+                    opt.value = brand;
+                    opt.textContent = brand;
+                    sel.appendChild(opt);
                 });
-                const sel = nativeSelect.options[activeIndex];
-                if (sel) label.textContent = sel.text;
             }
-
-            options.forEach((o, idx) => {
-                if (o.classList.contains('disabled')) return;
-                o.addEventListener('click', (ev) => {
-                    ev.stopPropagation();
-                    activeIndex = idx;
-                    const sel = nativeSelect.options[activeIndex];
-                    if (sel) {
-                        nativeSelect.selectedIndex = activeIndex;
-                        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                    updateActive();
-                    closePanel();
-                });
-            });
-
-            trigger.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); openPanel(); activeIndex = Math.min(activeIndex + 1, options.length - 1); updateActive(); }
-                else if (e.key === 'ArrowUp') { e.preventDefault(); openPanel(); activeIndex = Math.max(activeIndex - 1, 0); updateActive(); }
-                else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!open) openPanel(); else { nativeSelect.selectedIndex = activeIndex; nativeSelect.dispatchEvent(new Event('change', { bubbles: true })); closePanel(); } }
-                else if (e.key === 'Escape') { if (open) { e.preventDefault(); closePanel(); } }
-            });
-
-            panel.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, options.length - 1); updateActive(); }
-                else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); updateActive(); }
-                else if (e.key === 'Enter') { e.preventDefault(); nativeSelect.selectedIndex = activeIndex; nativeSelect.dispatchEvent(new Event('change', { bubbles: true })); closePanel(); }
-                else if (e.key === 'Escape') { e.preventDefault(); closePanel(); }
-            });
-
-            trigger.addEventListener('click', (e) => { e.stopPropagation(); if (!open) openPanel(); else closePanel(); });
-
-            nativeSelect.addEventListener('change', () => { activeIndex = nativeSelect.selectedIndex >= 0 ? nativeSelect.selectedIndex : 0; updateActive(); });
-
-            panel.style.display = 'none';
-            updateActive();
         }
 
-        // Load initial data
-        await _fetchInventory(currentPage);
+        /* ── Fetch ── */
+        async function _fetch(p) {
+            _skeleton();
 
-        async function _fetchInventory(page) {
-            const params = { page, page_size: 20 };
-            const model = document.getElementById('inv-model').value;
-            const status = document.getElementById('inv-status').value;
-            const cellId = document.getElementById('inv-cell-id') ? document.getElementById('inv-cell-id').value.trim() : '';
-            let dateFrom = document.getElementById('inv-date-from') ? document.getElementById('inv-date-from').value : '';
-            let dateTo = document.getElementById('inv-date-to') ? document.getElementById('inv-date-to').value : '';
+            const cellId = document.getElementById('ci-cell-id').value.trim();
+            const dfrom  = _nd(document.getElementById('ci-dfrom').value);
+            const dto    = _nd(document.getElementById('ci-dto').value);
+            const brand  = document.getElementById('ci-brand').value;
+            const status = document.getElementById('ci-status').value;
 
-            // Normalize date formats to yyyy-mm-dd
-            function normalizeDateInput(s) {
-                if (!s) return '';
-                if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-                const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-                if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-                const d = new Date(s);
-                if (!isNaN(d)) {
-                    const y = d.getFullYear();
-                    const mm = String(d.getMonth() + 1).padStart(2, '0');
-                    const dd = String(d.getDate()).padStart(2, '0');
-                    return `${y}-${mm}-${dd}`;
-                }
-                return s;
-            }
+            const params = { page: p, page_size: 20 };
 
-            dateFrom = normalizeDateInput(dateFrom);
-            dateTo = normalizeDateInput(dateTo);
-
-            if (model) params.model = model;
-            if (status) params.status = status;
-
-            // cell id takes precedence
             if (cellId) {
                 params.cell_id = cellId;
                 if (status) params.status = status;
             } else {
-                // if status is provided but both dates empty, default dateFrom to today
-                if (status && !dateFrom && !dateTo) {
-                    const t = new Date();
-                    dateFrom = formatISO(t.getFullYear(), t.getMonth()+1, t.getDate());
-                }
-
-                params.page = page;
-                params.page_size = 20;
-                if (dateFrom) params.date_from = dateFrom;
-                if (dateTo) params.date_to = dateTo;
-                if (status) params.status = status;
+                if (dfrom)  params.date_from = dfrom;
+                if (dto)    params.date_to   = dto;
+                if (brand)  params.model     = brand;
+                if (status) params.status    = status;
             }
 
-            const result = await API.get('/admin/cells/inventory', params);
+            const res = await API.get('/admin/cells/inventory', params);
 
-            const tableEl = document.getElementById('inv-table');
-            if (result.success && result.data) {
-                tableEl.innerHTML = Table.render({
-                    columns: [
-                        { key: 'cell_id', label: 'Cell ID', render: (v) => `<span class="text-mono fw-semibold">${v}</span>` },
-                        { key: 'model', label: 'Brand Name' },
-                        { key: 'status', label: 'Status', render: (v) => StatusBadge.render(v) },
-                        { key: 'registered_at', label: 'Date', render: (v) => v ? (typeof v === 'string' && v.indexOf('T')>0 ? v.split('T')[0] : v) : '—' }
-                    ],
-                    rows: result.data.items || [],
-                    emptyText: 'No cells match the selected filters.'
-                });
+            if (res?.success && res.data) {
+                const items = res.data.items || [];
+                const pag   = res.data;
 
-                // Pagination
-                const pagEl = document.getElementById('inv-pagination');
-                const totalPages = result.data.total_pages || 1;
-                const totalItems = result.data.total_items || 0;
-                pagEl.innerHTML = Pagination.render({
-                    currentPage: page,
-                    totalPages,
-                    totalItems,
-                    pageSize: 20,
-                    containerId: 'inv-pag-controls'
-                });
-                Pagination.init('inv-pag-controls', (p) => {
-                    currentPage = p;
-                    _fetchInventory(p);
-                });
+                _renderStats(items, pag);
+                _renderTable(items);
+                _setCount(items.length, pag);
+                _renderPag(pag, p);
+
             } else {
-                tableEl.innerHTML = Table.render({
-                    columns: [
-                        { key: 'cell_id', label: 'Cell ID' },
-                        { key: 'model', label: 'Brand Name' },
-                        { key: 'status', label: 'Status', render: (v) => StatusBadge.render(v) },
-                        { key: 'registered_at', label: 'Date', render: (v) => v ? (typeof v === 'string' && v.indexOf('T')>0 ? v.split('T')[0] : v) : '—' }
-                    ],
-                    rows: [],
-                    emptyText: 'Unable to load cell inventory data.'
-                });
+                _renderStats([], null);
+                document.getElementById('ci-results').innerHTML =
+                    _emptyHtml('No cell records found for the given criteria.');
+                _setCount(0, null);
+                document.getElementById('ci-pag').innerHTML = '';
             }
+        }
+
+        /* ── Stats ── */
+        function _renderStats(items, pag) {
+            const el = document.getElementById('ci-stats');
+            if (!el) return;
+            if (!items?.length) { el.innerHTML = ''; return; }
+
+            const total      = pag ? (pag.total_items || items.length) : items.length;
+            const graded     = items.filter(i => i.status === 'GRADED').length;
+            const assigned   = items.filter(i => i.status === 'ASSIGNED').length;
+            const failed     = items.filter(i => i.status === 'FAILED').length;
+            const registered = items.filter(i => i.status === 'REGISTERED').length;
+
+            el.innerHTML = `
+                <div class="ci-stats" style="margin-bottom:16px;">
+                    ${_sc('Total Cells',  total.toLocaleString(), 'in view')}
+                    ${_sc('Graded',       graded,     'passed grading',   '#1A6B3C')}
+                    ${_sc('Assigned',     assigned,   'in battery packs', '#1565C0')}
+                    ${_sc('Registered',   registered, 'awaiting grading', '#B45309')}
+                    ${_sc('Failed',       failed,     'did not pass',     '#B71C1C')}
+                </div>`;
+        }
+
+        function _sc(label, val, sub, color = '') {
+            return `
+                <div class="ci-stat">
+                    <div class="ci-stat-label">${label}</div>
+                    <div class="ci-stat-value"${color ? ` style="color:${color}"` : ''}>${val}</div>
+                    <div class="ci-stat-sub">${sub}</div>
+                </div>`;
+        }
+
+        /* ── Table ── */
+        function _renderTable(items) {
+            const el = document.getElementById('ci-results');
+            if (!items?.length) {
+                el.innerHTML = _emptyHtml('No cell records found for the given criteria.');
+                return;
+            }
+
+            const rows = items.map(row => `
+                <tr>
+                    <td><span class="ci-mono">${row.cell_id || '—'}</span></td>
+                    <td>${row.model && row.model !== 'N/A' ? row.model : '<span style="color:var(--color-text-tertiary)">N/A</span>'}</td>
+                    <td>${_badge(row.status)}</td>
+                    <td class="ci-num">${row.voltage != null ? Number(row.voltage).toFixed(3) + ' V' : '—'}</td>
+                    <td class="ci-num">${row.ir != null ? Number(row.ir).toFixed(2) + ' mΩ' : '—'}</td>
+                    <td style="color:var(--color-text-secondary);font-size:12px">${_fmtDate(row.registered_at)}</td>
+                </tr>`).join('');
+
+            el.innerHTML = `
+                <table class="ci-table">
+                    <thead><tr>
+                        <th>Cell ID</th>
+                        <th>Brand</th>
+                        <th>Status</th>
+                        <th class="ci-th-num">Voltage</th>
+                        <th class="ci-th-num">IR (mΩ)</th>
+                        <th>Registered At</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
+        /* ── Pagination ── */
+        function _renderPag(data, p) {
+            const el         = document.getElementById('ci-pag');
+            const totalPages = data.total_pages || 1;
+            const totalItems = data.total_items || 0;
+
+            el.innerHTML = Pagination.render({
+                currentPage: p,
+                totalPages,
+                totalItems,
+                pageSize: 20,
+                containerId: 'ci-pag-ctrl'
+            });
+
+            Pagination.init('ci-pag-ctrl', np => {
+                page = np;
+                _fetch(np);
+                document.querySelector('.ci-page')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+
+        /* ── Helpers ── */
+        function _setCount(n, pag) {
+            const el    = document.getElementById('ci-count');
+            if (!el) return;
+            const total = pag ? (pag.total_items || n) : n;
+            el.textContent = total > 0
+                ? `${total.toLocaleString()} cell${total !== 1 ? 's' : ''}`
+                : 'No records';
+        }
+
+        function _skeleton() {
+            const el = document.getElementById('ci-results');
+            const sk = ws =>
+                `<tr>${ws.map(w => `<td><span class="ci-skel" style="width:${w}"></span></td>`).join('')}</tr>`;
+            el.innerHTML = `
+                <table class="ci-table">
+                    <thead><tr>
+                        <th>Cell ID</th><th>Brand</th><th>Status</th>
+                        <th class="ci-th-num">Voltage</th>
+                        <th class="ci-th-num">IR (mΩ)</th>
+                        <th>Registered At</th>
+                    </tr></thead>
+                    <tbody>
+                        ${sk(['90px','80px','70px','52px','52px','100px'])}
+                        ${sk(['80px','90px','80px','52px','52px','100px'])}
+                        ${sk(['100px','70px','65px','52px','52px','100px'])}
+                        ${sk(['85px','85px','75px','52px','52px','100px'])}
+                        ${sk(['95px','75px','70px','52px','52px','100px'])}
+                    </tbody>
+                </table>`;
+        }
+
+        function _nd(s) {
+            if (!s) return '';
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+            const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+            if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+            const d = new Date(s);
+            if (!isNaN(d))
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            return s;
+        }
+
+        function _fmtDate(v) {
+            if (!v) return '—';
+            const d = new Date(v);
+            if (isNaN(d)) return v;
+            return d.toLocaleString(undefined, {
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
         }
 
         return null;
     }
 };
+
+/* ── Module-level helpers ── */
+function _emptyHtml(msg) {
+    return `
+        <div class="ci-empty">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+                <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+            </svg>
+            <p class="ci-empty-ttl">No results</p>
+            <p class="ci-empty-sub">${msg}</p>
+        </div>`;
+}
+
+function _isoToday() {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
 
 export default CellInventory;

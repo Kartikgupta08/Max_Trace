@@ -1,786 +1,1060 @@
 /**
  * traceability.js — Battery Traceability Viewer
- * 
- * Search by Battery ID and view the full manufacturing trace:
- * cells used, grading results, BMS mapping, PDI, and dispatch info.
- * Expandable rows with detailed traceability trees.
- * 
- * API: GET /api/v1/admin/traceability?battery_id=...
+ *
+ * Responsive redesign — fixes all layout drift issues:
+ *   ✓ Filter bar uses CSS Grid (not flexbox) — columns never drift
+ *   ✓ No absolutely-positioned custom dropdowns that escape the DOM
+ *   ✓ Native <select> + date inputs, styled cleanly — always in flow
+ *   ✓ Table wrapped in overflow-x:auto — never breaks page width
+ *   ✓ All selectors prefixed .tr- to prevent style leaks
+ *   ✓ Breakpoints at 1080px and 640px for smooth collapse
  */
 
 import API from '../../core/api.js';
-import Table from '../../components/table.js';
-import StatusBadge from '../../components/statusBadge.js';
 import Pagination from '../../components/pagination.js';
 
+/* ─────────────────────────────────────────────────────────────
+   Local badge renderer — full colour coding for every status
+   value returned by the battery traceability API.
+
+   Colour logic:
+     GREEN  — pass / success / dispatched / ready
+     ORANGE — pending / in-progress / prod
+     RED    — fail / ng / failed
+     BLUE   — informational (finished pass variant)
+     GREY   — unknown / fallback
+───────────────────────────────────────────────────────────── */
+function _badge(val) {
+    if (val == null || val === '' || val === undefined) return '<span style="color:var(--color-text-tertiary)">—</span>';
+
+    const v = String(val).trim().toUpperCase();
+
+    /* ── colour map ── */
+    const GREEN  = 'background:#E6F4EC;color:#1A6B3C;border:1px solid #A8D5BA;';
+    const ORANGE = 'background:#FFF3E0;color:#B45309;border:1px solid #FCD38A;';
+    const RED    = 'background:#FDECEA;color:#B71C1C;border:1px solid #F5C0BE;';
+    const BLUE   = 'background:#E3F0FF;color:#1565C0;border:1px solid #AECEF7;';
+    const PURPLE = 'background:#F3E8FF;color:#6B21A8;border:1px solid #D8B4FE;';
+    const GREY   = 'background:var(--color-bg-body);color:var(--color-text-secondary);border:1px solid var(--color-border);';
+
+    let style = GREY;
+    let dot   = '';
+
+    switch (v) {
+        /* ── Pack test / grading ── */
+        case 'PASS':
+        case 'PASSED':
+            style = GREEN; dot = '● '; break;
+
+        case 'FAIL':
+        case 'FAILED':
+        case 'NG':
+            style = RED; dot = '● '; break;
+
+        case 'PENDING':
+            style = ORANGE; dot = '○ '; break;
+
+        /* ── PDI results ── */
+        case 'FINISHED PASS':
+        case 'FINISH PASS':
+            style = GREEN; dot = '● '; break;
+
+        case 'FINISHED FAIL':
+        case 'FINISH FAIL':
+            style = RED; dot = '● '; break;
+
+        case 'IN PROGRESS':
+        case 'IN-PROGRESS':
+            style = BLUE; dot = '● '; break;
+
+        /* ── Overall battery status ── */
+        case 'DISPATCHED':
+            style = GREEN; dot = '● '; break;
+
+        case 'READY TO DISPATCH':
+            style = BLUE; dot = '● '; break;
+
+        case 'FG PENDING':
+            style = ORANGE; dot = '● '; break;
+
+        case 'PROD':
+        case 'IN PRODUCTION':
+            style = PURPLE; dot = '● '; break;
+
+        case 'FAILED':  /* had_ng_status batteries */
+            style = RED; dot = '● '; break;
+
+        case 'NOT ASSIGNED':
+            style = GREY; break;
+
+        default:
+            style = GREY; break;
+    }
+
+    return `<span style="
+        display:inline-flex;align-items:center;gap:3px;
+        padding:3px 10px;border-radius:20px;
+        font-size:11px;font-weight:600;letter-spacing:0.3px;
+        white-space:nowrap;${style}
+    ">${dot}${val}</span>`;
+}
+
 const Traceability = {
+
     render() {
         return `
-            <div class="content__inner">
-                <div class="page-header">
-                    <h1 class="page-header__title">Battery Traceability</h1>
-                    <p class="page-header__subtitle">Full manufacturing history and component trace for every battery pack</p>
+        <style>
+            /* ── Reset ── */
+            .tr-page *, .tr-page *::before, .tr-page *::after { box-sizing: border-box; }
+
+            /* ── Page wrapper ── */
+            .tr-page {
+                padding: var(--content-padding, 24px);
+                font-family: var(--font-family);
+                animation: tr-fade 0.22s ease both;
+            }
+
+            @keyframes tr-fade {
+                from { opacity: 0; transform: translateY(6px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+
+            /* ── Header ── */
+            .tr-header { margin-bottom: 24px; }
+
+            .tr-header h1 {
+                font-size: var(--text-xl);
+                font-weight: var(--weight-bold);
+                color: var(--color-text-primary);
+                margin: 0 0 4px;
+                line-height: 1.25;
+            }
+
+            .tr-header p {
+                font-size: var(--text-sm);
+                color: var(--color-text-secondary);
+                margin: 0;
+            }
+
+            /* ════════════════════════
+               FILTER CARD
+            ════════════════════════ */
+            .tr-filter-card {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-sm);
+                padding: 20px 24px 14px;
+                margin-bottom: 16px;
+            }
+
+            .tr-filter-eyebrow {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 14px;
+            }
+
+            /*
+             * KEY FIX: CSS Grid with explicit columns.
+             * Each field has a defined lane — nothing can drift
+             * regardless of content or viewport changes.
+             *
+             * Desktop: [Battery ID wide] [From] [To] [Status] [Btn]
+             * Tablet:  3-col, btn spans full row
+             * Mobile:  1-col stack
+             */
+            .tr-filter-grid {
+                display: grid;
+                grid-template-columns: 2.2fr 1fr 1fr 1.1fr auto;
+                gap: 12px;
+                align-items: end;
+            }
+
+            @media (max-width: 1080px) {
+                .tr-filter-grid {
+                    grid-template-columns: 1fr 1fr 1fr;
+                }
+                .tr-btn-col { grid-column: 1 / -1; }
+            }
+
+            @media (max-width: 640px) {
+                .tr-filter-grid  { grid-template-columns: 1fr; }
+                .tr-btn-col      { grid-column: 1; }
+                .tr-filter-card  { padding: 16px 16px 12px; }
+            }
+
+            .tr-field {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                min-width: 0; /* prevent grid blowout */
+            }
+
+            .tr-label {
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                white-space: nowrap;
+            }
+
+            /* Input with icon */
+            .tr-input-wrap {
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+
+            .tr-input-icon {
+                position: absolute;
+                left: 10px;
+                color: var(--color-text-tertiary);
+                display: flex;
+                align-items: center;
+                pointer-events: none;
+                z-index: 1;
+            }
+
+            /* Shared input/select base */
+            .tr-ctrl {
+                width: 100%;
+                height: 40px;
+                background: var(--color-bg-input);
+                border: 1.5px solid var(--color-border-input);
+                border-radius: var(--radius-md);
+                color: var(--color-text-primary);
+                font-family: var(--font-family);
+                font-size: var(--text-sm);
+                padding: 0 12px;
+                outline: none;
+                transition: border-color 140ms ease, box-shadow 140ms ease;
+            }
+
+            .tr-ctrl:focus {
+                border-color: var(--color-primary);
+                box-shadow: 0 0 0 3px var(--color-primary-surface);
+            }
+
+            .tr-ctrl::placeholder { color: var(--color-text-tertiary); }
+
+            .tr-ctrl--icon { padding-left: 34px; }
+
+            /* Native select */
+            .tr-ctrl.tr-select {
+                appearance: none;
+                -webkit-appearance: none;
+                cursor: pointer;
+                background-image: url("data:image/svg+xml,%3Csvg width='11' height='7' viewBox='0 0 11 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%238B90A0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 11px center;
+                padding-right: 30px;
+            }
+
+            /* Search button */
+            .tr-search-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 7px;
+                height: 40px;
+                width: 100%;
+                padding: 0 20px;
+                background: var(--color-primary);
+                color: #fff;
+                border: none;
+                border-radius: var(--radius-md);
+                font-family: var(--font-family);
+                font-size: var(--text-sm);
+                font-weight: 600;
+                cursor: pointer;
+                white-space: nowrap;
+                box-shadow: 0 1px 4px rgba(27,58,92,0.18);
+                transition: background 140ms ease, box-shadow 140ms ease, transform 100ms ease;
+            }
+
+            .tr-search-btn:hover  { background: var(--color-primary-light); box-shadow: 0 3px 10px rgba(27,58,92,0.24); }
+            .tr-search-btn:active { transform: scale(0.98); }
+
+            /* Clear link */
+            .tr-clear-row {
+                display: flex;
+                justify-content: flex-end;
+                margin-top: 10px;
+            }
+
+            .tr-clear-btn {
+                background: none;
+                border: none;
+                font-family: var(--font-family);
+                font-size: 12px;
+                color: var(--color-text-tertiary);
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 0;
+                transition: color 140ms ease;
+            }
+            .tr-clear-btn:hover { color: var(--color-text-primary); }
+
+            /* ════════════════════════
+               STATS BAR
+            ════════════════════════ */
+            .tr-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 12px;
+                margin-bottom: 16px;
+            }
+
+            .tr-stat {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                padding: 14px 18px;
+                box-shadow: var(--shadow-sm);
+            }
+
+            .tr-stat-label {
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 0.7px;
+                margin-bottom: 4px;
+            }
+
+            .tr-stat-value {
+                font-size: 22px;
+                font-weight: 700;
+                color: var(--color-text-primary);
+                line-height: 1.2;
+            }
+
+            .tr-stat-sub {
+                font-size: 11px;
+                color: var(--color-text-tertiary);
+                margin-top: 2px;
+            }
+
+            /* ════════════════════════
+               RESULTS CARD
+            ════════════════════════ */
+            .tr-card {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-sm);
+                overflow: hidden;
+            }
+
+            .tr-card-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 14px 20px;
+                border-bottom: 1px solid var(--color-border-light);
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .tr-card-title {
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin: 0;
+            }
+
+            .tr-count {
+                font-size: 11px;
+                font-weight: 600;
+                color: var(--color-text-tertiary);
+                background: var(--color-bg-body);
+                border: 1px solid var(--color-border);
+                border-radius: 20px;
+                padding: 2px 10px;
+            }
+
+            /*
+             * KEY FIX: Horizontal scroll wrapper.
+             * Table has a min-width so it never crushes columns;
+             * the wrapper scrolls horizontally instead of
+             * breaking the page layout.
+             */
+            .tr-scroll {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .tr-table {
+                width: 100%;
+                border-collapse: collapse;
+                min-width: 860px;
+            }
+
+            .tr-table thead {
+                background: var(--color-bg-table-header);
+                position: sticky;
+                top: 0;
+                z-index: 2;
+            }
+
+            .tr-table th {
+                padding: 10px 12px;
+                text-align: left;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-secondary);
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                border-bottom: 1px solid var(--color-border);
+                white-space: nowrap;
+            }
+
+            .tr-table td {
+                padding: 11px 12px;
+                font-size: var(--text-sm);
+                color: var(--color-text-primary);
+                border-bottom: 1px solid var(--color-border-light);
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+
+            .tr-table tbody tr:last-child td { border-bottom: none; }
+
+            .tr-table tbody tr.tr-row {
+                cursor: pointer;
+                transition: background 120ms ease;
+            }
+
+            .tr-table tbody tr.tr-row:hover td { background: var(--color-bg-table-row-hover); }
+
+            .tr-table tbody tr.tr-row.tr-expanded td {
+                background: var(--color-primary-surface);
+                border-bottom-color: transparent;
+            }
+
+            /* ── Expand button ── */
+            .tr-expand-cell {
+                width: 40px;
+                text-align: center;
+                padding: 0 8px !important;
+            }
+
+            .tr-xbtn {
+                width: 26px;
+                height: 26px;
+                border-radius: 6px;
+                border: 1.5px solid var(--color-border);
+                background: none;
+                color: var(--color-text-secondary);
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                transition: background 120ms ease, border-color 120ms ease,
+                            color 120ms ease, transform 200ms ease;
+            }
+
+            .tr-xbtn:hover {
+                background: var(--color-primary-surface);
+                border-color: var(--color-primary);
+                color: var(--color-primary);
+            }
+
+            .tr-xbtn.open {
+                background: var(--color-primary);
+                border-color: var(--color-primary);
+                color: #fff;
+                transform: rotate(90deg);
+            }
+
+            /* ── Detail row ── */
+            .tr-det-row { display: none; }
+            .tr-det-row.show { display: table-row; }
+
+            .tr-det-row td {
+                padding: 0 !important;
+                background: var(--color-bg-body) !important;
+                border-bottom: 2px solid var(--color-border) !important;
+            }
+
+            .tr-det-panel {
+                padding: 20px 24px;
+                animation: tr-det-open 0.15s ease;
+            }
+
+            @keyframes tr-det-open {
+                from { opacity: 0; transform: translateY(-4px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+
+            .tr-det-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+                gap: 16px 24px;
+                margin-bottom: 16px;
+            }
+
+            .tr-det-lbl {
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                margin-bottom: 3px;
+            }
+
+            .tr-det-val {
+                font-size: var(--text-sm);
+                font-weight: 500;
+                color: var(--color-text-primary);
+            }
+
+            /* Cell tags */
+            .tr-cells {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin-top: 14px;
+                padding-top: 14px;
+                border-top: 1px solid var(--color-border-light);
+            }
+
+            .tr-cells-ttl {
+                width: 100%;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--color-text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                margin-bottom: 4px;
+            }
+
+            .tr-cell-tag {
+                background: var(--color-primary-surface);
+                color: var(--color-primary);
+                border: 1px solid #C5D5E8;
+                border-radius: 20px;
+                font-size: 11px;
+                font-weight: 500;
+                font-family: var(--font-mono);
+                padding: 2px 10px;
+            }
+
+            /* Download button */
+            .tr-dl-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 16px;
+                background: var(--color-primary);
+                color: #fff;
+                border: none;
+                border-radius: var(--radius-md);
+                font-family: var(--font-family);
+                font-size: var(--text-sm);
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 140ms ease;
+            }
+            .tr-dl-btn:hover { background: var(--color-primary-light); }
+
+            /* Mono */
+            .tr-mono {
+                font-family: var(--font-mono);
+                font-size: 12px;
+                font-weight: 500;
+            }
+
+            /* Skeleton shimmer */
+            @keyframes tr-shimmer {
+                0%   { background-position: -800px 0; }
+                100% { background-position:  800px 0; }
+            }
+
+            .tr-skel {
+                display: inline-block;
+                height: 12px;
+                border-radius: 4px;
+                background: linear-gradient(
+                    90deg,
+                    var(--color-border-light) 25%,
+                    var(--color-border)       50%,
+                    var(--color-border-light) 75%
+                );
+                background-size: 1600px 100%;
+                animation: tr-shimmer 1.4s ease-in-out infinite;
+            }
+
+            /* Empty state */
+            .tr-empty {
+                text-align: center;
+                padding: 52px 24px;
+                color: var(--color-text-tertiary);
+            }
+            .tr-empty svg { opacity: 0.22; margin-bottom: 14px; }
+            .tr-empty-ttl {
+                font-size: var(--text-base);
+                font-weight: 600;
+                color: var(--color-text-secondary);
+                margin: 0 0 4px;
+            }
+            .tr-empty-sub { font-size: var(--text-sm); margin: 0; }
+
+            /* Pagination */
+            .tr-pag { padding: 14px 20px; border-top: 1px solid var(--color-border-light); }
+        </style>
+
+        <div class="tr-page">
+
+            <!-- Header -->
+            <div class="tr-header">
+                <h1>Battery Traceability</h1>
+                <p>Full manufacturing history and component trace for every battery pack</p>
+            </div>
+
+            <!-- Filter Card -->
+            <div class="tr-filter-card">
+                <div class="tr-filter-eyebrow">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
+                    Search &amp; Filter
                 </div>
 
-                <div class="trace-hint" style="margin:8px 0 18px 0;color:var(--color-text-secondary);font-size:14px;">
-                </div>
+                <div class="tr-filter-grid">
 
-                <!-- Search / Filter (Battery ID + Date) -->
-                <div class="filter-bar">
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">Battery ID</label>
-                                                <div style="position: relative; width: 100%;">
-                                                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; height: 100%; pointer-events: none;">
-                                                                <!-- Medium, Centered Battery SVG Icon -->
-                                                                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                    <rect x="5" y="4" width="12" height="14" rx="2" fill="url(#battery-gradient)" stroke="#888" stroke-width="1.2"/>
-                                                                    <rect x="9" y="2.5" width="4" height="2" rx="1" fill="#B0BEC5" stroke="#888" stroke-width="0.7"/>
-                                                                    <rect x="10.25" y="8.5" width="1.5" height="4" rx="0.75" fill="#fff"/>
-                                                                    <rect x="10.25" y="14" width="1.5" height="1.5" rx="0.75" fill="#fff"/>
-                                                                    <defs>
-                                                                        <linearGradient id="battery-gradient" x1="5" y1="4" x2="17" y2="18" gradientUnits="userSpaceOnUse">
-                                                                            <stop stop-color="#B9F6CA"/>
-                                                                            <stop offset="1" stop-color="#B2EBF2"/>
-                                                                        </linearGradient>
-                                                                    </defs>
-                                                                </svg>
-                                                        </span>
-                                                        <input type="text" id="trace-battery-id" class="filter-bar__input" placeholder="Scan or Type Battery ID" style="padding-left: 38px; height: 44px; font-size: 1.08em;" />
-                                                </div>
+                    <!-- Battery ID -->
+                    <div class="tr-field">
+                        <label class="tr-label" for="tr-bid">Battery ID</label>
+                        <div class="tr-input-wrap">
+                            <span class="tr-input-icon">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="6" y="2" width="12" height="20" rx="2"/>
+                                    <path d="M10 2v2m4-2v2M10 20v2m4-2v2M6 8h12M6 16h12"/>
+                                </svg>
+                            </span>
+                            <input
+                                type="text"
+                                id="tr-bid"
+                                class="tr-ctrl tr-ctrl--icon"
+                                placeholder="Scan or type Battery ID…"
+                                autocomplete="off"
+                                spellcheck="false"
+                            />
+                        </div>
                     </div>
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">Date From</label>
-                        <input type="date" id="trace-date-from" class="filter-bar__input">
+
+                    <!-- From date -->
+                    <div class="tr-field">
+                        <label class="tr-label" for="tr-dfrom">From Date</label>
+                        <input type="date" id="tr-dfrom" class="tr-ctrl" />
                     </div>
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">To</label>
-                        <input type="date" id="trace-date-to" class="filter-bar__input">
+
+                    <!-- To date -->
+                    <div class="tr-field">
+                        <label class="tr-label" for="tr-dto">To Date</label>
+                        <input type="date" id="tr-dto" class="tr-ctrl" />
                     </div>
-                    <div class="filter-bar__group">
-                        <label class="filter-bar__label">Status</label>
-                        <select id="trace-status-filter" class="filter-bar__input form-select">
-                            <option value="">All</option>
-                            <option value="registered">Registered</option>
-                            <option value="testing">Testing</option>
-                            <option value="tested">Tested</option>
-                            <option value="pdi">PDI</option>
-                            <option value="dispatched">Dispatched</option>
-                            <option value="failed">Failed</option>
+
+                    <!-- Status -->
+                    <div class="tr-field">
+                        <label class="tr-label" for="tr-status">Status</label>
+                        <select id="tr-status" class="tr-ctrl tr-select">
+                            <option value="">All Statuses</option>
+                            <option value="PROD">PROD — In Production</option>
+                            <option value="FG PENDING">FG Pending — Awaiting FG</option>
+                            <option value="READY TO DISPATCH">Ready to Dispatch</option>
+                            <option value="DISPATCHED">Dispatched</option>
+                            <option value="failed">Failed (NG)</option>
                         </select>
                     </div>
-                    <button id="btn-trace-search" class="btn btn--primary">Search</button>
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 2v8m0 0l4-4m-4 4l-4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <rect x="3" y="16" width="14" height="2" rx="1" fill="#fff"/>
-                      </svg>
+
+                    <!-- Search button -->
+                    <div class="tr-field tr-btn-col">
+                        <label class="tr-label" style="visibility:hidden" aria-hidden="true">Search</label>
+                        <button id="tr-search" class="tr-search-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            Search
+                        </button>
+                    </div>
+
+                </div>
+
+                <div class="tr-clear-row">
+                    <button class="tr-clear-btn" id="tr-clear">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+                        </svg>
+                        Clear filters
                     </button>
                 </div>
-
-                <!-- Stats area -->
-                <div id="trace-stats" style="margin-top:6px;margin-bottom:10px;"></div>
-
-                <!-- Results Table -->
-                <div id="trace-results">
-                    <div class="data-table-wrapper">
-                        <div class="data-table__empty">
-                            <div class="data-table__empty-icon">🔍</div>
-                            <p>Enter a Battery ID or apply filters to view traceability data</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Pagination -->
-                <div id="trace-pagination"></div>
             </div>
-        `;
+
+            <!-- Stats injected by JS -->
+            <div id="tr-stats"></div>
+
+            <!-- Results -->
+            <div class="tr-card">
+                <div class="tr-card-header">
+                    <p class="tr-card-title">Results</p>
+                    <span class="tr-count" id="tr-count">—</span>
+                </div>
+                <div class="tr-scroll">
+                    <div id="tr-results">${_emptyHtml('Enter a Battery ID or apply filters to search')}</div>
+                </div>
+                <div class="tr-pag" id="tr-pag"></div>
+            </div>
+
+        </div>`;
     },
 
+    /* ═══════════════════════════════════════════════════ */
+
     init() {
-        const searchBtn = document.getElementById('btn-trace-search');
-        const batteryInput = document.getElementById('trace-battery-id');
-        const statusInput = document.getElementById('trace-status-filter');
-        let currentPage = 1;
+        let page = 1;
 
-        // Automatically fetch only today's batteries on page load
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        const todayStr = `${yyyy}-${mm}-${dd}`;
-        // Set the date from and to fields to today for initial fetch
-        let dateFromInput = document.getElementById('trace-date-from');
-        let dateToInput = document.getElementById('trace-date-to');
-        // Do NOT set default date filters, so the query fetches the most recent batteries by default
-        if (dateFromInput) dateFromInput.value = '';
-        if (dateToInput) dateToInput.value = '';
-        _fetchTraceData(currentPage);
+        const bid    = () => document.getElementById('tr-bid').value.trim();
+        const dfrom  = () => _nd(document.getElementById('tr-dfrom').value);
+        const dto    = () => _nd(document.getElementById('tr-dto').value);
+        const status = () => document.getElementById('tr-status').value;
 
-        searchBtn.addEventListener('click', () => {
-            currentPage = 1;
-            _fetchTraceData(currentPage);
+        // Initial load
+        _go(1);
+
+        document.getElementById('tr-search').addEventListener('click', () => { page = 1; _go(1); });
+        document.getElementById('tr-bid').addEventListener('keydown', e => { if (e.key === 'Enter') { page = 1; _go(1); } });
+
+        document.getElementById('tr-clear').addEventListener('click', () => {
+            ['tr-bid','tr-dfrom','tr-dto','tr-status'].forEach(id => {
+                const el = document.getElementById(id);
+                el.value = '';
+            });
+            page = 1;
+            _go(1);
         });
 
-        // Allow Enter key to trigger search when typing battery id
-        batteryInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                currentPage = 1;
-                _fetchTraceData(currentPage);
-            }
-        });
-
-        // Create a modern custom dropdown that mirrors the native select
-        if (statusInput) createModernDropdown(statusInput);
-
-        function createModernDropdown(nativeSelect) {
-            // hide the native select but keep it for form integration
-            nativeSelect.classList.add('modern-dropdown-hidden-native');
-
-            const wrapper = document.createElement('div');
-            wrapper.className = 'modern-dropdown';
-            wrapper.setAttribute('role', 'combobox');
-            wrapper.setAttribute('aria-expanded', 'false');
-
-            const trigger = document.createElement('button');
-            trigger.type = 'button';
-            trigger.className = 'modern-dropdown__trigger';
-            trigger.setAttribute('aria-haspopup', 'listbox');
-
-            const label = document.createElement('span');
-            label.className = 'modern-dropdown__label';
-            const selectedOption = nativeSelect.options[nativeSelect.selectedIndex];
-            label.textContent = selectedOption ? selectedOption.text : 'All Statuses';
-
-            const arrow = document.createElement('span');
-            arrow.className = 'modern-dropdown__arrow';
-            arrow.innerHTML = '<svg width="16" height="10" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 3.5L10 11L18 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
-            trigger.appendChild(label);
-            trigger.appendChild(arrow);
-
-            const panel = document.createElement('div');
-            panel.className = 'modern-dropdown__panel';
-            panel.setAttribute('role', 'listbox');
-            panel.setAttribute('tabindex', '-1');
-
-            const list = document.createElement('div');
-            list.className = 'modern-dropdown__list';
-
-            const options = Array.from(nativeSelect.options).map((opt, idx) => {
-                const o = document.createElement('div');
-                o.className = 'modern-dropdown__option' + (opt.disabled ? ' disabled' : '');
-                if (opt.selected) o.classList.add('selected');
-                o.setAttribute('data-value', opt.value);
-                o.setAttribute('data-index', String(idx));
-                o.setAttribute('role', 'option');
-                o.textContent = opt.text;
-                list.appendChild(o);
-                return o;
-            });
-
-            panel.appendChild(list);
-            wrapper.appendChild(trigger);
-            // insert wrapper (trigger) next to native select; panel will be appended to body
-            nativeSelect.parentNode.insertBefore(wrapper, nativeSelect.nextSibling);
-            document.body.appendChild(panel);
-
-            let open = false;
-            let activeIndex = nativeSelect.selectedIndex >= 0 ? nativeSelect.selectedIndex : 0;
-
-            function positionPanel() {
-                const rect = trigger.getBoundingClientRect();
-                const top = rect.bottom + window.scrollY + 8;
-                const left = rect.left + window.scrollX;
-                panel.style.position = 'absolute';
-                panel.style.top = `${top}px`;
-                panel.style.left = `${left}px`;
-                panel.style.minWidth = `${rect.width}px`;
-                panel.style.zIndex = 2000;
-            }
-
-            function openPanel() {
-                wrapper.classList.add('open');
-                wrapper.setAttribute('aria-expanded', 'true');
-                // make panel visible (panel is appended to body so CSS selector won't toggle it)
-                panel.style.display = 'block';
-                panel.style.opacity = '1';
-                panel.style.transform = 'translateY(0)';
-                panel.style.pointerEvents = 'auto';
-                positionPanel();
-                open = true;
-                // ensure active visible
-                updateActive();
-                document.addEventListener('click', onDocClick);
-                window.addEventListener('resize', positionPanel);
-                window.addEventListener('scroll', positionPanel, true);
-            }
-
-            function closePanel() {
-                wrapper.classList.remove('open');
-                wrapper.setAttribute('aria-expanded', 'false');
-                // animate hide then remove display to avoid abrupt jump
-                panel.style.opacity = '0';
-                panel.style.transform = 'translateY(-8px)';
-                panel.style.pointerEvents = 'none';
-                setTimeout(() => { if (!open) panel.style.display = 'none'; }, 220);
-                open = false;
-                document.removeEventListener('click', onDocClick);
-                window.removeEventListener('resize', positionPanel);
-                window.removeEventListener('scroll', positionPanel, true);
-            }
-
-            function onDocClick(e) { if (!wrapper.contains(e.target) && !panel.contains(e.target)) closePanel(); }
-
-            function updateActive() {
-                options.forEach((o, i) => {
-                    o.classList.toggle('selected', i === activeIndex);
-                    o.setAttribute('aria-selected', String(i === activeIndex));
-                    if (i === activeIndex) {
-                        // ensure option is visible inside the panel without scrolling the page
-                        if (list && list.scrollHeight > list.clientHeight) {
-                            list.scrollTop = Math.max(0, o.offsetTop - Math.round(list.clientHeight / 2) + Math.round(o.clientHeight / 2));
-                        }
-                    }
-                });
-                const sel = nativeSelect.options[activeIndex];
-                if (sel) label.textContent = sel.text;
-            }
-
-            // click handlers for options
-            options.forEach((o, idx) => {
-                if (o.classList.contains('disabled')) return;
-                o.addEventListener('click', (ev) => {
-                    ev.stopPropagation();
-                    activeIndex = idx;
-                    const sel = nativeSelect.options[activeIndex];
-                    if (sel) {
-                        nativeSelect.selectedIndex = activeIndex;
-                        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                    updateActive();
-                    closePanel();
-                });
-            });
-
-            // keyboard navigation
-            trigger.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); openPanel(); activeIndex = Math.min(activeIndex + 1, options.length - 1); updateActive(); }
-                else if (e.key === 'ArrowUp') { e.preventDefault(); openPanel(); activeIndex = Math.max(activeIndex - 1, 0); updateActive(); }
-                else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!open) openPanel(); else { nativeSelect.selectedIndex = activeIndex; nativeSelect.dispatchEvent(new Event('change', { bubbles: true })); closePanel(); } }
-                else if (e.key === 'Escape') { if (open) { e.preventDefault(); closePanel(); } }
-            });
-
-            // also support key navigation when panel focused
-            panel.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, options.length - 1); updateActive(); }
-                else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); updateActive(); }
-                else if (e.key === 'Enter') { e.preventDefault(); nativeSelect.selectedIndex = activeIndex; nativeSelect.dispatchEvent(new Event('change', { bubbles: true })); closePanel(); }
-                else if (e.key === 'Escape') { e.preventDefault(); closePanel(); }
-            });
-
-            trigger.addEventListener('click', (e) => { e.stopPropagation(); if (!open) openPanel(); else closePanel(); });
-
-            // keep native select changes in sync (if changed elsewhere)
-            nativeSelect.addEventListener('change', () => {
-                activeIndex = nativeSelect.selectedIndex >= 0 ? nativeSelect.selectedIndex : 0;
-                updateActive();
-            });
-
-            // initial state
-            panel.style.display = 'none';
-            updateActive();
-        }
-
-        // Custom datepicker popup attached to the date inputs (from / to)
-        dateFromInput = document.getElementById('trace-date-from');
-        dateToInput = document.getElementById('trace-date-to');
-        let activeDateInput = null;
-        let datepickerEl = null;
-        let dpState = { year: null, month: null, selected: null };
-
-        function formatISO(y, m, d) {
-            const mm = String(m).padStart(2,'0');
-            const dd = String(d).padStart(2,'0');
-            return `${y}-${mm}-${dd}`;
-        }
-
-        const _MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-        function openDatepicker() {
-            if (!activeDateInput) return;
-            if (datepickerEl) return;
-            datepickerEl = document.createElement('div');
-            datepickerEl.className = 'datepicker-popup';
-
-            // initialize state based on current active input or today
-            const current = activeDateInput.value ? new Date(activeDateInput.value) : new Date();
-            dpState.year = current.getFullYear();
-            dpState.month = current.getMonth();
-            dpState.selected = activeDateInput.value || '';
-
-            const monthLabel = `${_MONTH_NAMES[dpState.month]} ${dpState.year}`;
-            datepickerEl.innerHTML = `
-                <div class="datepicker-header">
-                    <div>
-                        <div class="datepicker-month">${monthLabel}</div>
-                    </div>
-                    <div class="datepicker-nav">
-                        <button class="datepicker-btn" data-action="prev" aria-label="Previous month">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-                        </button>
-                        <button class="datepicker-btn" data-action="next" aria-label="Next month">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="datepicker-grid" id="dp-grid"></div>
-                <div class="datepicker-footer">
-                    <div class="datepicker-action" id="dp-clear">Clear</div>
-                    <div style="display:flex;gap:12px;"><div class="datepicker-action" id="dp-today">Today</div></div>
-                </div>
-            `;
-
-            document.body.appendChild(datepickerEl);
-            positionDatepicker();
-            renderCalendar(dpState.year, dpState.month);
-
-            // events
-            datepickerEl.querySelector('[data-action="prev"]').addEventListener('click', () => {
-                dpState.month -= 1;
-                if (dpState.month < 0) { dpState.month = 11; dpState.year -= 1; }
-                renderCalendar(dpState.year, dpState.month);
-            });
-            datepickerEl.querySelector('[data-action="next"]').addEventListener('click', () => {
-                dpState.month += 1;
-                if (dpState.month > 11) { dpState.month = 0; dpState.year += 1; }
-                renderCalendar(dpState.year, dpState.month);
-            });
-
-            datepickerEl.querySelector('#dp-clear').addEventListener('click', () => {
-                if (activeDateInput) activeDateInput.value = '';
-                closeDatepicker();
-            });
-            datepickerEl.querySelector('#dp-today').addEventListener('click', () => {
-                const t = new Date();
-                if (activeDateInput) activeDateInput.value = formatISO(t.getFullYear(), t.getMonth()+1, t.getDate());
-                closeDatepicker();
-            });
-
-            // outside click to close
-            setTimeout(() => { // allow this handler to be set after element is added
-                window.addEventListener('click', outsideClickHandler);
-            }, 0);
-        }
-
-        function positionDatepicker() {
-            if (!activeDateInput || !datepickerEl) return;
-            const rect = activeDateInput.getBoundingClientRect();
-            const top = rect.bottom + window.scrollY + 8;
-            const left = rect.left + window.scrollX;
-            datepickerEl.style.top = `${top}px`;
-            datepickerEl.style.left = `${left}px`;
-        }
-
-        function outsideClickHandler(e) {
-            if (!datepickerEl) return;
-            if (datepickerEl.contains(e.target) || e.target === activeDateInput) return;
-            closeDatepicker();
-        }
-
-        function closeDatepicker() {
-            if (!datepickerEl) return;
-            window.removeEventListener('click', outsideClickHandler);
-            datepickerEl.remove();
-            datepickerEl = null;
-        }
-
-        function renderCalendar(year, month) {
-            if (!datepickerEl) return;
-            const grid = datepickerEl.querySelector('#dp-grid');
-            // update header month label when calendar re-renders
-            const headerLabel = datepickerEl.querySelector('.datepicker-month');
-            if (headerLabel) headerLabel.textContent = `${_MONTH_NAMES[month]} ${year}`;
-            grid.innerHTML = '';
-
-            const weekDays = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-            weekDays.forEach(d => {
-                const w = document.createElement('div');
-                w.className = 'datepicker-weekday';
-                w.textContent = d;
-                grid.appendChild(w);
-            });
-
-            const first = new Date(year, month, 1);
-            const startDay = first.getDay();
-            const daysInMonth = new Date(year, month+1, 0).getDate();
-
-            // fill blanks
-            for (let i=0;i<startDay;i++) {
-                const b = document.createElement('div');
-                b.className = 'datepicker-day disabled';
-                grid.appendChild(b);
-            }
-
-            for (let d=1; d<=daysInMonth; d++) {
-                const el = document.createElement('div');
-                el.className = 'datepicker-day';
-                el.textContent = d;
-
-                const iso = formatISO(year, month+1, d);
-                if (activeDateInput && activeDateInput.value === iso) el.classList.add('selected');
-                const today = new Date();
-                if (today.getFullYear()===year && today.getMonth()===month && today.getDate()===d) el.classList.add('today');
-
-                el.addEventListener('click', () => {
-                    if (activeDateInput) activeDateInput.value = iso;
-                    closeDatepicker();
-                });
-
-                grid.appendChild(el);
-            }
-        }
-
-        // open when either date input clicked
-        if (dateFromInput) dateFromInput.addEventListener('click', (e) => {
-            e.stopPropagation();
-            activeDateInput = dateFromInput;
-            if (!datepickerEl) openDatepicker();
-            else closeDatepicker();
-        });
-        if (dateToInput) dateToInput.addEventListener('click', (e) => {
-            e.stopPropagation();
-            activeDateInput = dateToInput;
-            if (!datepickerEl) openDatepicker();
-            else closeDatepicker();
-        });
-
-        // reposition on resize/scroll
-        window.addEventListener('resize', () => { if (datepickerEl) positionDatepicker(); });
-        window.addEventListener('scroll', () => { if (datepickerEl) positionDatepicker(); }, true);
-
-        // Note: Battery ID is an optional override — when provided we fetch by id and show full record(s).
-        async function _fetchTraceData(page) {
-
-            let dateFrom = document.getElementById('trace-date-from') ? document.getElementById('trace-date-from').value : '';
-            let dateTo = document.getElementById('trace-date-to') ? document.getElementById('trace-date-to').value : '';
-            const batteryId = (document.getElementById('trace-battery-id').value || '').trim();
-            const status = (document.getElementById('trace-status-filter').value || '').trim();
-
-            // Normalize date formats: accept dd-mm-yyyy or yyyy-mm-dd and send yyyy-mm-dd
-            function normalizeDateInput(s) {
-                if (!s) return '';
-                if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-                const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-                if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-                const d = new Date(s);
-                if (!isNaN(d)) {
-                    const y = d.getFullYear();
-                    const mm = String(d.getMonth() + 1).padStart(2, '0');
-                    const dd = String(d.getDate()).padStart(2, '0');
-                    return `${y}-${mm}-${dd}`;
-                }
-                return s;
-            }
-
-            dateFrom = normalizeDateInput(dateFrom);
-            dateTo = normalizeDateInput(dateTo);
+        /* ── Fetch ── */
+        async function _go(p) {
+            _skeleton();
 
             const params = {};
-            // If a battery id is provided, that takes precedence — backends often return a single record
-            if (batteryId) {
-                params.battery_id = batteryId;
-                // include status if supplied for more specific lookup
-                if (status) params.status = status;
+            const id = bid();
+
+            if (id) {
+                params.battery_id = id;
+                if (status()) params.status = status();
             } else {
-                // Always fetch the most recent 15 batteries if no filters are set
-                params.page = page;
+                params.page      = p;
                 params.page_size = 15;
-                if (dateFrom) params.date_from = dateFrom;
-                if (dateTo) params.date_to = dateTo;
-                if (status) params.status = status;
+                if (dfrom()) params.date_from = dfrom();
+                if (dto())   params.date_to   = dto();
+                if (status()) params.status   = status();
             }
 
-            console.debug('[Traceability] Request params:', params);
+            const res = await API.get('/admin/traceability', params);
 
-            const result = await API.get('/admin/traceability', params);
+            if (res?.success && res.data) {
+                let items = [], pag = null;
 
-            console.debug('[Traceability] API result:', result);
-
-            if (result && result.success && result.data) {
-                _renderMessage('');
-
-                // Normalize items for rendering: support different backend shapes
-                let items = [];
-                let pagination = null;
-
-                if (Array.isArray(result.data)) {
-                    items = result.data;
-                } else if (result.data.items && Array.isArray(result.data.items)) {
-                    items = result.data.items;
-                    pagination = result.data;
-                } else if (result.data && typeof result.data === 'object') {
-                    // single object result — wrap in array
-                    items = [result.data];
+                if (Array.isArray(res.data)) {
+                    items = res.data;
+                } else if (Array.isArray(res.data.items)) {
+                    items = res.data.items; pag = res.data;
+                } else if (typeof res.data === 'object') {
+                    items = [res.data];
                 }
 
-                // Sort by created_at descending (most recent first)
-                items.sort((a, b) => {
-                    const dateA = new Date(a.created_at || a.createdAt || 0);
-                    const dateB = new Date(b.created_at || b.createdAt || 0);
-                    return dateB - dateA;
-                });
+                items.sort((a, b) =>
+                    new Date(b.created_at || b.createdAt || 0) -
+                    new Date(a.created_at || a.createdAt || 0)
+                );
 
-                _renderResults(items);
+                _stats(items, pag);
+                _table(items);
+                _count(items.length, pag);
+                if (!id && pag) _pag(pag, p);
+                else document.getElementById('tr-pag').innerHTML = '';
 
-                // Render stats: battery-level when searching by id, otherwise a total-count when paginated
-                if (batteryId) {
-                    // show first matched battery as the stat
-                    _renderStats({ type: 'single', item: items[0] || null });
-                } else if (pagination) {
-                    _renderStats({ type: 'summary', total: pagination.total_items || 0 });
-                } else {
-                    _renderStats(null);
-                }
-
-                // Show pagination only when not searching by battery id and when pagination meta exists
-                if (!batteryId && pagination) {
-                    _renderPagination(pagination, page);
-                } else {
-                    const p = document.getElementById('trace-pagination');
-                    if (p) p.innerHTML = '';
-                }
             } else {
-                const errMsg = result && (result.message || result.detail || result.error) ? (result.message || result.detail || result.error) : 'No traceability records found for the given criteria.';
-                _renderMessage(errMsg);
-                _renderResults([]);
-                _renderStats(null);
-                const p = document.getElementById('trace-pagination');
-                if (p) p.innerHTML = '';
-                if (result && !result.success) console.warn('[Traceability] API error:', result);
+                _stats([], null);
+                document.getElementById('tr-results').innerHTML = _emptyHtml('No records found for the given criteria.');
+                _count(0, null);
+                document.getElementById('tr-pag').innerHTML = '';
             }
         }
 
-        function _renderStats(payload) {
-            const container = document.getElementById('trace-stats');
-            if (!container) return;
-            if (!payload) {
-                container.innerHTML = '';
-                return;
-            }
+        /* ── Stats ── */
+        function _stats(items, pag) {
+            const el = document.getElementById('tr-stats');
+            if (!el) return;
+            if (!items?.length) { el.innerHTML = ''; return; }
 
-    
+            const total      = pag ? (pag.total_items || items.length) : items.length;
+            const dispatched = items.filter(i => i.status?.toUpperCase() === 'DISPATCHED').length;
+            const pdiPass    = items.filter(i => ['FINISHED PASS','FINISH PASS','PASS','PASSED'].includes(i.pdi_result?.toUpperCase())).length;
+            const failed     = items.filter(i => i.status?.toUpperCase() === 'FAILED' || i.status?.toUpperCase() === 'NG').length;
 
-            if (payload.type === 'summary') {
-                container.innerHTML = `
-                    <div class="card" style="padding:12px; display:flex; align-items:center; gap:12px;">
-                        <div style="font-size:13px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.6px;">Total Batteries</div>
-                        <div style="font-size:20px;font-weight:700;color:var(--color-text-primary);">${payload.total}</div>
-                    </div>
-                `;
-                return;
-            }
-
-            if (payload.type === 'single') {
-                const item = payload.item;
-                if (!item) {
-                    container.innerHTML = `<div class="card" style="padding:12px;color:var(--color-text-tertiary);">No battery found</div>`;
-                    return;
-                }
-
-                container.innerHTML = `
-                    <div class="card" style="display:flex;gap:18px;align-items:center;padding:12px;">
-                        <div style="min-width:160px">
-                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">Battery</div>
-                            <div style="font-weight:700;font-size:16px;color:var(--color-text-primary);">${item.battery_id || '—'}</div>
-                        </div>
-                        <div style="min-width:120px">
-                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">Model</div>
-                            <div style="font-weight:600">${item.model || '—'}</div>
-                        </div>
-                        <div style="min-width:120px">
-                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">BMS ID</div>
-                            <div style="font-weight:600">${item.bms_id || '—'}</div>
-                        </div>
-                        <div style="min-width:100px">
-                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">Testing</div>
-                            <div>${StatusBadge.render(item.grading_result)}</div>
-                        </div>
-                        <div style="min-width:100px">
-                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">PDI</div>
-                            <div>${StatusBadge.render(item.pdi_result)}</div>
-                        </div>
-                        <div style="min-width:120px">
-                            <div style="font-size:12px;color:var(--color-text-tertiary);text-transform:uppercase;">Completed</div>
-                            <div style="font-weight:600">${item.created_at || item.assembled_at || '—'}</div>
-                        </div>
-                    </div>
-                `;
-            }
+            el.innerHTML = `
+                <div class="tr-stats" style="margin-bottom:16px;">
+                    ${_sc('Total Records',  total.toLocaleString(), 'in view')}
+                    ${_sc('Dispatched',     dispatched, 'completed', 'var(--color-success)')}
+                    ${_sc('PDI Passed',     pdiPass, 'inspections', 'var(--color-info, #1565C0)')}
+                    ${_sc('Failed',         failed, 'require attention', 'var(--color-error)')}
+                </div>`;
         }
 
-        function _renderResults(items) {
-            const container = document.getElementById('trace-results');
-            container.innerHTML = Table.render({
-                columns: [
-                    { key: 'battery_id', label: 'Battery ID', render: (v) => `<span class="text-mono fw-semibold">${v}</span>` },
-                    { key: 'model', label: 'Model' },
-                    { key: 'bms_id', label: 'BMS ID', render: (v) => v ? `<span class="text-mono">${v}</span>` : '—' },
-                    { key: 'grading_result', label: 'Testing', render: (v) => StatusBadge.render(v) },
-                    { key: 'pdi_result', label: 'PDI', render: (v) => StatusBadge.render(v) },
-                    { key: 'status', label: 'Status', render: (v) => StatusBadge.render(v) },
-                    { key: 'created_at', label: 'Created At' },
-                    { key: 'assembled_at', label: 'Assembled On' },
-                    { key: 'dispatch_destination', label: 'Customer Name' }
-                ],
-                rows: items,
-                expandable: true,
-                expandRender: (row) => _renderTraceDetail(row),
-                emptyText: 'No traceability records found for the given criteria.'
+        function _sc(label, val, sub, color = '') {
+            return `
+                <div class="tr-stat">
+                    <div class="tr-stat-label">${label}</div>
+                    <div class="tr-stat-value"${color ? ` style="color:${color}"` : ''}>${val}</div>
+                    <div class="tr-stat-sub">${sub}</div>
+                </div>`;
+        }
+
+        /* ── Table ── */
+        function _table(items) {
+            const el = document.getElementById('tr-results');
+            if (!items?.length) {
+                el.innerHTML = _emptyHtml('No traceability records found for the given criteria.');
+                return;
+            }
+
+            const rows = items.map((row, i) => {
+                const rid = `tr-r${i}`;
+                return `
+                    <tr class="tr-row" id="${rid}">
+                        <td class="tr-expand-cell">
+                            <button class="tr-xbtn" data-rid="${rid}" title="Expand row">
+                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M9 18l6-6-6-6"/>
+                                </svg>
+                            </button>
+                        </td>
+                        <td><span class="tr-mono">${row.battery_id || '—'}</span></td>
+                        <td>${row.model || '—'}</td>
+                        <td><span class="tr-mono">${row.bms_id || '—'}</span></td>
+                        <td>${_badge(row.pack_test_result)}</td>
+                        <td>${_badge(row.pdi_result)}</td>
+                        <td>${_badge(row.status)}</td>
+                        <td style="color:var(--color-text-secondary);font-size:12px">${_fd(row.created_at)}</td>
+                        <td style="color:var(--color-text-secondary)">${row.dispatch_destination || '—'}</td>
+                    </tr>
+                    <tr class="tr-det-row" id="${rid}-d">
+                        <td colspan="9">
+                            <div class="tr-det-panel">${_det(row)}</div>
+                        </td>
+                    </tr>`;
+            }).join('');
+
+            el.innerHTML = `
+                <table class="tr-table">
+                    <thead><tr>
+                        <th style="width:40px"></th>
+                        <th>Battery ID</th>
+                        <th>Model</th>
+                        <th>BMS ID</th>
+                        <th>Testing</th>
+                        <th>PDI</th>
+                        <th>Status</th>
+                        <th>Created At</th>
+                        <th>Customer</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+
+            // Expand/collapse handlers
+            el.querySelectorAll('.tr-xbtn').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    const rid    = btn.dataset.rid;
+                    const dr     = document.getElementById(rid);
+                    const dd     = document.getElementById(`${rid}-d`);
+                    const isOpen = btn.classList.contains('open');
+
+                    // close all others
+                    el.querySelectorAll('.tr-xbtn.open').forEach(b => {
+                        if (b === btn) return;
+                        b.classList.remove('open');
+                        document.getElementById(b.dataset.rid)?.classList.remove('tr-expanded');
+                        document.getElementById(`${b.dataset.rid}-d`)?.classList.remove('show');
+                    });
+
+                    btn.classList.toggle('open', !isOpen);
+                    dr.classList.toggle('tr-expanded', !isOpen);
+                    dd.classList.toggle('show', !isOpen);
+                });
             });
 
-            Table.initExpandable(container);
+            // Click row = toggle
+            el.querySelectorAll('.tr-row').forEach(r => {
+                r.addEventListener('click', e => {
+                    if (!e.target.closest('.tr-xbtn')) r.querySelector('.tr-xbtn').click();
+                });
+            });
         }
 
-        function _renderTraceDetail(row) {
+        function _det(row) {
             const cells = row.cells || [];
             return `
-                <div class="detail-panel">
-                    <div class="detail-panel__item">
-                        <div class="detail-panel__label">Battery ID</div>
-                        <div class="detail-panel__value">${row.battery_id || '—'}</div>
-                    </div>
-                    <div class="detail-panel__item">
-                        <div class="detail-panel__label">Model</div>
-                        <div class="detail-panel__value">${row.model || '—'}</div>
-                    </div>
-                    <div class="detail-panel__item">
-                        <div class="detail-panel__label">BMS ID</div>
-                        <div class="detail-panel__value">${row.bms_id || '—'}</div>
-                    </div>
-                    <div class="detail-panel__item">
-                        <div class="detail-panel__label">Assembled On</div>
-                        <div class="detail-panel__value">${row.assembled_at || '—'}</div>
-                    </div>
-                    <div class="detail-panel__item">
-                        <div class="detail-panel__label">Grading Result</div>
-                        <div class="detail-panel__value">${StatusBadge.render(row.grading_result)}</div>
-                    </div>
-                    <div class="detail-panel__item">
-                        <div class="detail-panel__label">PDI Result</div>
-                        <div class="detail-panel__value">${StatusBadge.render(row.pdi_result)}</div>
-                    </div>
-                    <div class="detail-panel__item">
-                        <div class="detail-panel__label">Customer Name</div>
-                        <div class="detail-panel__value">${row.dispatch_destination || '—'}</div>
-                    </div>
-                    <div class="detail-panel__item">
-                        <div class="detail-panel__label">Dispatched At</div>
-                        <div class="detail-panel__value">${row.dispatched_at || '—'}</div>
-                    </div>
-
-
-
-
-
-                    <div style="margin-top:18px;text-align:right;">
-                        <button class="download-btn" onclick="window.downloadBatteryReport && window.downloadBatteryReport('${row.battery_id}')">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M10 2v8m0 0l4-4m-4 4l-4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <rect x="3" y="16" width="14" height="2" rx="1" fill="#fff"/>
-                          </svg>
-                          Download
-                        </button>
-                    </div>
-                
-                
-                
-                
-                    </div>
-                ${cells.length > 0 ? `
-                    <div style="margin-top:16px;">
-                        <div style="font-size:var(--text-xs);font-weight:600;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
-                            Mapped Cells (${cells.length})
-                        </div>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                            ${cells.map(c => `<span class="badge badge--info">${c}</span>`).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-            `;
+                <div class="tr-det-grid">
+                    ${_di('Battery ID',     row.battery_id,                      true)}
+                    ${_di('Model',          row.model)}
+                    ${_di('BMS ID',         row.bms_id,                          true)}
+                    ${_di('Assembled On',   _fd(row.assembled_at))}
+                    ${_di('Testing Result', _badge(row.pack_test_result), false, true)}
+                    ${_di('PDI Result',     _badge(row.pdi_result),     false, true)}
+                    ${_di('Status',         _badge(row.status),         false, true)}
+                    ${_di('Customer',       row.dispatch_destination)}
+                    ${_di('Dispatched At',  _fd(row.dispatched_at))}
+                    ${_di('Created At',     _fd(row.created_at))}
+                </div>
+                ${cells.length ? `
+                    <div class="tr-cells">
+                        <div class="tr-cells-ttl">Mapped Cells (${cells.length})</div>
+                        ${cells.map(c => `<span class="tr-cell-tag">${c}</span>`).join('')}
+                    </div>` : ''}
+                <div style="display:flex;justify-content:flex-end;margin-top:16px">
+                    <button class="tr-dl-btn"
+                        onclick="window.downloadBatteryReport&&window.downloadBatteryReport('${row.battery_id}')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Report
+                    </button>
+                </div>`;
         }
 
-        function _renderPagination(data, page) {
-            const container = document.getElementById('trace-pagination');
-            const totalPages = data.total_pages || 1;
-            const totalItems = data.total_items || 0;
+        function _di(label, val, mono = false, isHtml = false) {
+            const display = (val == null || val === '') ? '—' : val;
+            const inner   = isHtml ? display
+                          : mono   ? `<span class="tr-mono">${display}</span>`
+                          : display;
+            return `<div><div class="tr-det-lbl">${label}</div><div class="tr-det-val">${inner}</div></div>`;
+        }
 
-            container.innerHTML = Pagination.render({
-                currentPage: page,
-                totalPages,
-                totalItems,
-                pageSize: 15,
-                containerId: 'trace-pag-controls'
+        /* ── Pagination ── */
+        function _pag(data, p) {
+            const el = document.getElementById('tr-pag');
+            el.innerHTML = Pagination.render({
+                currentPage: p,
+                totalPages:  data.total_pages || 1,
+                totalItems:  data.total_items || 0,
+                pageSize:    15,
+                containerId: 'tr-pag-ctrl'
             });
-
-            Pagination.init('trace-pag-controls', (newPage) => {
-                currentPage = newPage;
-                _fetchTraceData(newPage);
+            Pagination.init('tr-pag-ctrl', np => {
+                page = np;
+                _go(np);
+                document.querySelector('.tr-page')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         }
 
-        function _renderMessage(msg) {
-            const container = document.getElementById('trace-results');
-            let banner = document.getElementById('trace-results-msg');
-            if (!banner) {
-                banner = document.createElement('div');
-                banner.id = 'trace-results-msg';
-                banner.style.padding = '12px 16px';
-                banner.style.color = 'var(--color-text-secondary)';
-                banner.style.fontSize = '14px';
-                banner.style.minHeight = '40px';
-                container.insertBefore(banner, container.firstChild);
-            }
-            banner.textContent = msg || '';
+        /* ── Helpers ── */
+        function _count(n, pag) {
+            const el    = document.getElementById('tr-count');
+            if (!el) return;
+            const total = pag ? (pag.total_items || n) : n;
+            el.textContent = total > 0
+                ? `${total.toLocaleString()} record${total !== 1 ? 's' : ''}`
+                : 'No records';
+        }
+
+        function _skeleton() {
+            const el = document.getElementById('tr-results');
+            const sk = ws =>
+                `<tr>${ws.map(w => `<td><span class="tr-skel" style="width:${w}"></span></td>`).join('')}</tr>`;
+            el.innerHTML = `
+                <table class="tr-table">
+                    <thead><tr>
+                        <th style="width:40px"></th>
+                        <th>Battery ID</th><th>Model</th><th>BMS ID</th>
+                        <th>Testing</th><th>PDI</th><th>Status</th>
+                        <th>Created At</th><th>Customer</th>
+                    </tr></thead>
+                    <tbody>
+                        ${sk(['24px','88px','68px','82px','58px','58px','74px','108px','110px'])}
+                        ${sk(['24px','72px','78px','90px','58px','58px','68px','108px','90px'])}
+                        ${sk(['24px','96px','60px','76px','58px','58px','88px','108px','120px'])}
+                        ${sk(['24px','80px','74px','84px','58px','58px','76px','108px','100px'])}
+                    </tbody>
+                </table>`;
+        }
+
+        function _nd(s) {
+            if (!s) return '';
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+            const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+            if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+            const d = new Date(s);
+            if (!isNaN(d))
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            return s;
+        }
+
+        function _fd(v) {
+            if (!v) return '—';
+            const d = new Date(v);
+            if (isNaN(d)) return v;
+            return d.toLocaleString(undefined, {
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
         }
 
         return null;
     }
 };
 
+/* module-level helper used in render() before init() runs */
+function _emptyHtml(msg) {
+    return `
+        <div class="tr-empty">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <p class="tr-empty-ttl">No results</p>
+            <p class="tr-empty-sub">${msg}</p>
+        </div>`;
+}
+
 export default Traceability;
 
-// Add global download handler
+/* ── Global download handler (unchanged from original) ── */
 window.downloadBatteryReport = function(batteryId) {
-  if (!batteryId || batteryId === '—') {
-    alert('No Battery ID found to download report.');
-    return;
-  }
-  fetch(`http://localhost:8000/reports/generate-full-audit/${encodeURIComponent(batteryId)}`, {
-    method: 'GET',
-    headers: {
-      'accept': 'application/json'
-    }
-  })
-    .then(response => {
-      if (!response.ok) throw new Error('Failed to download report');
-      // Get filename from content-disposition header
-      const disposition = response.headers.get('content-disposition');
-      let filename = `BatteryReport_${batteryId}.xlsx`;
-      if (disposition && disposition.indexOf('filename=') !== -1) {
-        filename = disposition.split('filename=')[1].replace(/"/g, '');
-      }
-      return response.blob().then(blob => ({ blob, filename }));
+    if (!batteryId || batteryId === '—') { alert('No Battery ID found.'); return; }
+    fetch(`http://localhost:8000/reports/generate-full-audit/${encodeURIComponent(batteryId)}`, {
+        method: 'GET', headers: { accept: 'application/json' }
     })
-    .then(({ blob, filename }) => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+    .then(res => {
+        if (!res.ok) throw new Error('Failed');
+        const disp = res.headers.get('content-disposition');
+        let fn = `BatteryReport_${batteryId}.xlsx`;
+        if (disp?.includes('filename=')) fn = disp.split('filename=')[1].replace(/"/g, '');
+        return res.blob().then(blob => ({ blob, fn }));
     })
-    .catch(() => {
-      alert('Failed to download battery report.');
-    });
+    .then(({ blob, fn }) => {
+        const url = URL.createObjectURL(blob);
+        const a   = Object.assign(document.createElement('a'), { href: url, download: fn });
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+    })
+    .catch(() => alert('Failed to download battery report.'));
 };
