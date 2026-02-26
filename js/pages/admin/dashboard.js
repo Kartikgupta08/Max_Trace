@@ -513,13 +513,14 @@ function _setupWS() {
         label.textContent = text;
     }
 
-    const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const token  = Auth.getToken();
     const qs     = token ? `?token=${encodeURIComponent(token)}` : '';
-    const urls   = [
-        `${scheme}//127.0.0.1:8000/admin/ws/dashboard${qs}`,
-        `${scheme}//localhost:8000/admin/ws/dashboard${qs}`
-    ];
+    // Derived from the same base as REST — no hardcoded hosts.
+    // Change API_BASE in api.js and WS follows automatically.
+    const _WS_BASE = 'https://shrey7781-maxvolt-erp.hf.space'
+        .replace(/^https:\/\//, 'wss://')
+        .replace(/^http:\/\//, 'ws://');
+    const urls = [`${_WS_BASE}/admin/ws/dashboard${qs}`];
 
     let attempt = 0, timer = null;
 
