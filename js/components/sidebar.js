@@ -6,10 +6,17 @@
  *
  * Admin users (assigned_roles includes "admin") see every section.
  * All other users see only routes whose roles[] intersect their assigned_roles.
+ *
+ * Collapse behaviour:
+ *   - Collapsed state stored in localStorage so it persists across page loads.
+ *   - Collapsed: sidebar shrinks to icon-only (48px wide), labels hidden.
+ *   - Expanded:  sidebar at full width with labels visible.
  */
 
 import Auth from '../core/auth.js';
 import { getRoutesBySection } from '../routes.js';
+
+const COLLAPSE_KEY = 'mt_sidebar_collapsed';
 
 const Sidebar = {
     /**
@@ -17,26 +24,26 @@ const Sidebar = {
      * @returns {string}
      */
     render() {
-        const user  = Auth.getUser();
+        const user = Auth.getUser();
         if (!user) return '';
 
-        const assignedRoles = Auth.getRoles();   // string[]
+        const assignedRoles = Auth.getRoles();
         const sections      = getRoutesBySection(assignedRoles);
 
         // Build nav links
         let navHtml = '';
         sections.forEach((routes, sectionName) => {
-            navHtml += `<div class="sidebar__section-title">${_escapeHtml(sectionName)}</div>`;
+            navHtml += `<div class="sidebar__section-title sidebar__text-fade">${_escapeHtml(sectionName)}</div>`;
             routes.forEach(route => {
                 navHtml += `
-                    <a class="sidebar__link" href="${route.path}" data-route="${route.path}">
+                    <a class="sidebar__link" href="${route.path}" data-route="${route.path}" title="${_escapeHtml(route.title)}">
                         <span class="sidebar__link-icon material-symbols-outlined">${route.icon}</span>
-                        <span>${_escapeHtml(route.title)}</span>
+                        <span class="sidebar__text-fade">${_escapeHtml(route.title)}</span>
                     </a>`;
             });
         });
 
-        // Avatar initials from full_name
+        // Avatar initials
         const displayName = user.full_name || user.username || 'User';
         const initials = displayName
             .split(' ')
@@ -45,31 +52,38 @@ const Sidebar = {
             .toUpperCase()
             .slice(0, 2);
 
-        // Role label shown in footer
-        // Show "Admin" for admins, otherwise list roles (truncated)
         const roleLabel = Auth.isAdmin()
             ? 'Admin'
             : assignedRoles.slice(0, 2).join(', ') + (assignedRoles.length > 2 ? '…' : '');
 
         return `
+            <!-- Brand / Logo -->
             <div class="sidebar__brand">
                 <div class="sidebar__brand-logo">MT</div>
-                <div>
+                <div class="sidebar__text-fade">
                     <div class="sidebar__brand-name">MaxTrace</div>
                     <span class="sidebar__brand-sub">Battery Traceability</span>
                 </div>
+                <!-- Collapse toggle button -->
+                <button class="sidebar__collapse-btn" id="btn-sidebar-collapse" title="Toggle sidebar">
+                    <span class="material-symbols-outlined sidebar__collapse-icon">chevron_left</span>
+                </button>
             </div>
+
+            <!-- Nav -->
             <nav class="sidebar__nav" id="sidebar-nav">
-                ${navHtml || '<p style="padding:16px;font-size:12px;color:var(--color-text-tertiary)">No pages assigned.</p>'}
+                ${navHtml || '<p class="sidebar__text-fade" style="padding:16px;font-size:12px;color:var(--color-text-tertiary)">No pages assigned.</p>'}
             </nav>
+
+            <!-- Footer -->
             <div class="sidebar__footer">
                 <div class="sidebar__user">
-                    <div class="sidebar__user-avatar">${initials}</div>
-                    <div class="sidebar__user-info">
+                    <div class="sidebar__user-avatar" title="${_escapeHtml(displayName)}">${initials}</div>
+                    <div class="sidebar__user-info sidebar__text-fade">
                         <div class="sidebar__user-name">${_escapeHtml(displayName)}</div>
                         <div class="sidebar__user-role">${_escapeHtml(roleLabel)}</div>
                     </div>
-                    <button class="sidebar__logout-btn" id="btn-logout" title="Logout">
+                    <button class="sidebar__logout-btn sidebar__text-fade" id="btn-logout" title="Logout">
                         <span class="material-symbols-outlined" style="font-size:20px;">logout</span>
                     </button>
                 </div>
@@ -77,9 +91,10 @@ const Sidebar = {
     },
 
     /**
-     * Bind sidebar event listeners (logout button).
+     * Bind sidebar event listeners (logout + collapse).
      */
     init() {
+        // ── Logout ────────────────────────────────────────────────
         const logoutBtn = document.getElementById('btn-logout');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', e => {
@@ -87,6 +102,23 @@ const Sidebar = {
                 Auth.logout();
             });
         }
+
+        // ── Collapse ──────────────────────────────────────────────
+        const collapseBtn = document.getElementById('btn-sidebar-collapse');
+        const sidebar     = document.querySelector('.sidebar');
+        const shell       = document.querySelector('.app-shell');
+
+        if (!collapseBtn || !sidebar || !shell) return;
+
+        // Restore saved state
+        const isCollapsed = localStorage.getItem(COLLAPSE_KEY) === 'true';
+        if (isCollapsed) _applyCollapsed(sidebar, shell, true);
+
+        collapseBtn.addEventListener('click', () => {
+            const nowCollapsed = sidebar.classList.toggle('sidebar--collapsed');
+            shell.classList.toggle('app-shell--sidebar-collapsed', nowCollapsed);
+            localStorage.setItem(COLLAPSE_KEY, nowCollapsed);
+        });
     },
 
     /**
@@ -99,6 +131,12 @@ const Sidebar = {
         });
     },
 };
+
+/** Apply collapsed state without animation (on initial load). */
+function _applyCollapsed(sidebar, shell, collapsed) {
+    sidebar.classList.toggle('sidebar--collapsed', collapsed);
+    shell.classList.toggle('app-shell--sidebar-collapsed', collapsed);
+}
 
 function _escapeHtml(str) {
     const div = document.createElement('div');

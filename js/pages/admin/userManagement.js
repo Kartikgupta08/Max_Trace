@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000';
+import API from '../../core/api.js';
 
 /**
  * userManagement.js — Admin User Management Page
@@ -943,44 +943,28 @@ const UserManagement = {
     // ─── API ──────────────────────────────────────────────────────────────────
 
     async fetchUsers() {
-        const res = await fetch(`${API_BASE}/users/`);
-        if (!res.ok) throw new Error('Failed to load users');
-        return await res.json();
+        const res = await API.get('/users/');
+        if (!res.success) throw new Error('Failed to load users');
+        return res.data;
     },
 
     async addUser(payload) {
-        const res = await fetch(`${API_BASE}/users/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        if (res.status === 201) return await res.json();
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-            Array.isArray(err.detail)
-                ? err.detail.map(d => d.msg).join('; ')
-                : (err.detail || 'Failed to add user')
-        );
+        const res = await API.post('/users/', payload);
+        if (res.success) return res.data;
+        const detail = res.detail || res.message || 'Failed to add user';
+        throw new Error(Array.isArray(detail) ? detail.map(d => d.msg).join('; ') : detail);
     },
 
     async patchUser(username, payload) {
-        const res = await fetch(`${API_BASE}/users/${encodeURIComponent(username)}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        if (res.ok) return await res.json();
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-            Array.isArray(err.detail)
-                ? err.detail.map(d => d.msg).join('; ')
-                : (err.detail || 'Failed to update user')
-        );
+        const res = await API.patch(`/users/${encodeURIComponent(username)}`, payload);
+        if (res.success) return res.data;
+        const detail = res.detail || res.message || 'Failed to update user';
+        throw new Error(Array.isArray(detail) ? detail.map(d => d.msg).join('; ') : detail);
     },
 
     async deleteUser(username) {
-        const res = await fetch(`${API_BASE}/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Failed to delete user');
+        const res = await API.delete(`/users/${encodeURIComponent(username)}`);
+        if (!res.success) throw new Error('Failed to delete user');
     },
 
     // ─── Init ─────────────────────────────────────────────────────────────────

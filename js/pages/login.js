@@ -11,8 +11,7 @@
 
 import Auth from '../core/auth.js';
 import Router from '../core/router.js';
-
-const API_BASE = 'http://localhost:8000';
+import API from '../core/api.js';
 
 const Login = {
     render() {
@@ -200,8 +199,6 @@ const Login = {
                 gap: 2px;
                 cursor: default;
                 transition: background 0.25s, border-color 0.25s, transform 0.25s;
-                /* Position offset: center of .trace-cycle is 160,160 */
-                /* radius = 130px */
                 transform: translate(-50%, -50%);
             }
 
@@ -251,7 +248,6 @@ const Login = {
                 border-bottom: 4px solid transparent;
             }
 
-            /* Spin animation for outer ring — slow, elegant */
             @keyframes trace-spin {
                 from { transform: rotate(0deg); }
                 to   { transform: rotate(360deg); }
@@ -261,7 +257,6 @@ const Login = {
                 animation: trace-spin 40s linear infinite;
             }
 
-            /* Pulse on center */
             @keyframes trace-pulse {
                 0%, 100% { opacity: 1; transform: scale(1); }
                 50%       { opacity: 0.75; transform: scale(0.96); }
@@ -271,7 +266,6 @@ const Login = {
                 animation: trace-pulse 3s ease-in-out infinite;
             }
 
-            /* Step entry animation */
             @keyframes trace-pop {
                 from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
                 to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -288,7 +282,6 @@ const Login = {
             .trace-step:nth-child(10) { animation-delay: 0.76s; }
             .trace-step:nth-child(11) { animation-delay: 0.84s; }
 
-            /* Caption row below cycle */
             .trace-caption {
                 margin-top: 32px;
                 display: flex;
@@ -340,7 +333,6 @@ const Login = {
                 max-width: 320px;
             }
 
-            /* Brand block */
             .login-brand {
                 margin-bottom: 36px;
                 text-align: center;
@@ -379,14 +371,12 @@ const Login = {
                 line-height: 1.5;
             }
 
-            /* Divider */
             .login-divider {
                 height: 1px;
                 background: var(--color-border-light);
                 margin-bottom: 28px;
             }
 
-            /* Fields */
             .login-field {
                 margin-bottom: 18px;
             }
@@ -436,7 +426,6 @@ const Login = {
 
             .login-input::placeholder { color: var(--color-text-tertiary); }
 
-            /* Error */
             .login-error {
                 display: none;
                 align-items: center;
@@ -454,7 +443,6 @@ const Login = {
 
             .login-error.visible { display: flex; }
 
-            /* Submit */
             .login-btn {
                 width: 100%;
                 display: flex;
@@ -495,7 +483,6 @@ const Login = {
                 flex-shrink: 0;
             }
 
-            /* Footer note */
             .login-note {
                 text-align: center;
                 margin-top: 28px;
@@ -506,7 +493,6 @@ const Login = {
                 line-height: 1.6;
             }
 
-            /* Page entry animations */
             @keyframes lf-fade {
                 from { opacity: 0; transform: translateY(10px); }
                 to   { opacity: 1; transform: translateY(0); }
@@ -516,7 +502,6 @@ const Login = {
                 animation: lf-fade 0.4s 0.1s ease both;
             }
 
-            /* Responsive — stack on small screens */
             @media (max-width: 800px) {
                 .login-page { flex-direction: column; }
                 .login-left { flex: none; min-height: 300px; padding: 40px 24px 32px; }
@@ -531,7 +516,6 @@ const Login = {
             <!-- ── LEFT: Traceability visual ── -->
             <div class="login-left">
 
-                <!-- Company logo -->
                 <div class="login-logo-wrap">
                     <img
                         src="/Assets/maxvolt-logo.png.png"
@@ -541,13 +525,11 @@ const Login = {
                     <span class="login-logo-fallback">MAXVOLT</span>
                 </div>
 
-                <!-- Headline -->
                 <div class="login-left-headline">
                     <h2>Battery Traceability Platform</h2>
                     <p>End-to-end manufacturing visibility<br/>from cell to dispatch</p>
                 </div>
 
-                <!-- Cycle diagram — 9 steps arranged in a circle -->
                 <div class="trace-cycle" id="trace-cycle">
                     <div class="trace-ring"></div>
                     <div class="trace-ring-inner"></div>
@@ -555,10 +537,8 @@ const Login = {
                         <span class="trace-center-icon">⚡</span>
                         <span class="trace-center-text">MaxTrace</span>
                     </div>
-                    <!-- Steps are injected by JS below for clean positioning -->
                 </div>
 
-                <!-- Tags row -->
                 <div class="trace-caption">
                     <span class="trace-tag">Full Traceability</span>
                     <span class="trace-tag">Real-time Monitoring</span>
@@ -580,7 +560,6 @@ const Login = {
                             style="height:64px;width:auto;object-fit:contain;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;"
                             onerror="this.style.display='none';document.getElementById('login-brand-fallback').style.display='inline-flex';"
                         />
-                        <!-- Fallback if logo missing -->
                         <div id="login-brand-fallback" style="display:none;width:56px;height:56px;background:var(--color-primary);border-radius:14px;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 4px 16px rgba(27,58,92,0.25);">
                             <span style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-1px;">MT</span>
                         </div>
@@ -680,12 +659,11 @@ const Login = {
         const cycleEl = document.getElementById('trace-cycle');
         if (cycleEl) {
             const count  = STEPS.length;
-            const radius = 120;   // px from center of 320px container
+            const radius = 120;
             const cx     = 160;
             const cy     = 160;
 
             STEPS.forEach((step, i) => {
-                // Start from top (-90deg), go clockwise
                 const angle = (i / count) * 2 * Math.PI - Math.PI / 2;
                 const x = cx + radius * Math.cos(angle);
                 const y = cy + radius * Math.sin(angle);
@@ -745,20 +723,17 @@ const Login = {
             hideError();
 
             try {
-                const res  = await fetch(`${API_BASE}/users/login`, {
-                    method:  'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({ username, password }),
-                });
+                // ✅ Uses API.post — no raw fetch, no API_BASE reference needed
+                const res = await API.post('/users/login', { username, password });
 
-                const data = await res.json();
-
-                if (!res.ok) {
-                    const msg = Array.isArray(data.detail)
-                        ? data.detail.map(d => d.msg).join('; ')
-                        : (data.detail || 'Invalid username or password.');
+                if (!res.success) {
+                    const msg = Array.isArray(res.detail)
+                        ? res.detail.map(d => d.msg).join('; ')
+                        : (res.detail || res.message || 'Invalid username or password.');
                     throw new Error(msg);
                 }
+
+                const data = res.data;
 
                 if (!data.assigned_roles || !Array.isArray(data.assigned_roles)) {
                     throw new Error('Invalid server response. Contact your administrator.');

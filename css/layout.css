@@ -442,3 +442,144 @@ body.login-no-scroll {
 .app-shell--auth .sidebar {
     display: none;
 }
+/* ─────────────────────────────────────────────────────────────────
+   SIDEBAR COLLAPSE
+   Add these rules to the bottom of your layout.css file.
+   ───────────────────────────────────────────────────────────────── */
+
+/* ── CSS variable for collapsed width ── */
+:root {
+    --sidebar-width-collapsed: 64px;
+}
+
+/* ── Smooth transition on sidebar and content grid column ── */
+.sidebar {
+    transition: width var(--transition-fast, 150ms) ease;
+    width: var(--sidebar-width);
+    overflow: hidden; /* clips text as sidebar shrinks */
+}
+
+.app-shell {
+    transition: grid-template-columns var(--transition-fast, 150ms) ease;
+}
+
+/* ── Collapsed state: shell grid column shrinks ── */
+.app-shell--sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+}
+
+/* ── Collapsed state: sidebar itself ── */
+.sidebar--collapsed {
+    width: var(--sidebar-width-collapsed);
+}
+
+/* ── Hide labels, section titles, user info when collapsed ──
+   .sidebar__text-fade wraps every text-only element.
+   Fade out quickly, so it doesn't peek during animation.     ── */
+.sidebar--collapsed .sidebar__text-fade {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: opacity 100ms ease, width 0ms 100ms;
+}
+
+.sidebar__text-fade {
+    transition: opacity 150ms ease;
+}
+
+/* ── Brand area: keep logo centred when collapsed ── */
+.sidebar__brand {
+    position: relative;
+    gap: var(--space-3);
+    transition: padding var(--transition-fast, 150ms) ease;
+}
+
+.sidebar--collapsed .sidebar__brand {
+    padding: 0;
+    justify-content: center;
+}
+
+.sidebar--collapsed .sidebar__brand-logo {
+    margin-right: 0;
+}
+
+/* ── Nav links: centre icon when collapsed ── */
+.sidebar--collapsed .sidebar__link {
+    padding: var(--space-3) 0;
+    justify-content: center;
+    border-left-width: 2px;
+}
+
+.sidebar--collapsed .sidebar__link-icon {
+    width: auto;
+    opacity: 0.85;
+    font-size: 22px;
+}
+
+/* ── Section titles: hide completely (no ghost space) ── */
+.sidebar--collapsed .sidebar__section-title {
+    height: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
+/* ── Footer: centre avatar when collapsed ── */
+.sidebar--collapsed .sidebar__footer {
+    padding: var(--space-4) 0;
+}
+
+.sidebar--collapsed .sidebar__user {
+    justify-content: center;
+}
+
+/* ── Collapse button ── */
+.sidebar__collapse-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-sidebar);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast),
+                transform var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.sidebar__collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--color-text-inverse);
+}
+
+/* Rotate arrow icon 180° when collapsed */
+.sidebar__collapse-icon {
+    font-size: 18px;
+    transition: transform var(--transition-fast, 150ms) ease;
+    display: block;
+}
+
+.sidebar--collapsed .sidebar__collapse-icon {
+    transform: rotate(180deg);
+}
+
+/* ── Collapsed: hide collapse button text, keep it centred ──
+   Button stays visible at all times so user can re-expand.   ── */
+.sidebar--collapsed .sidebar__collapse-btn {
+    margin-left: 0;
+    margin-top: var(--space-2);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Tooltip on collapsed links (native title attr handles this) ──
+   Add a tiny visual hint that the link is clickable.            ── */
+.sidebar--collapsed .sidebar__link:hover {
+    background: var(--color-bg-sidebar-hover);
+}

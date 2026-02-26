@@ -14,22 +14,24 @@ import API from '../../core/api.js';
 import Pagination from '../../components/pagination.js';
 
 /* ─────────────────────────────────────────────────────────────
+   Derive the same base URL that api.js uses, without importing
+   the private API_BASE constant (which isn't exported).
+   This keeps downloadBatteryReport in sync with the rest of
+   the app automatically — no manual updates needed.
+───────────────────────────────────────────────────────────── */
+const _API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : 'https://your-production-domain.com';
+
+/* ─────────────────────────────────────────────────────────────
    Local badge renderer — full colour coding for every status
    value returned by the battery traceability API.
-
-   Colour logic:
-     GREEN  — pass / success / dispatched / ready
-     ORANGE — pending / in-progress / prod
-     RED    — fail / ng / failed
-     BLUE   — informational (finished pass variant)
-     GREY   — unknown / fallback
 ───────────────────────────────────────────────────────────── */
 function _badge(val) {
     if (val == null || val === '' || val === undefined) return '<span style="color:var(--color-text-tertiary)">—</span>';
 
     const v = String(val).trim().toUpperCase();
 
-    /* ── colour map ── */
     const GREEN  = 'background:#E6F4EC;color:#1A6B3C;border:1px solid #A8D5BA;';
     const ORANGE = 'background:#FFF3E0;color:#B45309;border:1px solid #FCD38A;';
     const RED    = 'background:#FDECEA;color:#B71C1C;border:1px solid #F5C0BE;';
@@ -41,52 +43,35 @@ function _badge(val) {
     let dot   = '';
 
     switch (v) {
-        /* ── Pack test / grading ── */
         case 'PASS':
         case 'PASSED':
             style = GREEN; dot = '● '; break;
-
         case 'FAIL':
         case 'FAILED':
         case 'NG':
             style = RED; dot = '● '; break;
-
         case 'PENDING':
             style = ORANGE; dot = '○ '; break;
-
-        /* ── PDI results ── */
         case 'FINISHED PASS':
         case 'FINISH PASS':
             style = GREEN; dot = '● '; break;
-
         case 'FINISHED FAIL':
         case 'FINISH FAIL':
             style = RED; dot = '● '; break;
-
         case 'IN PROGRESS':
         case 'IN-PROGRESS':
             style = BLUE; dot = '● '; break;
-
-        /* ── Overall battery status ── */
         case 'DISPATCHED':
             style = GREEN; dot = '● '; break;
-
         case 'READY TO DISPATCH':
             style = BLUE; dot = '● '; break;
-
         case 'FG PENDING':
             style = ORANGE; dot = '● '; break;
-
         case 'PROD':
         case 'IN PRODUCTION':
             style = PURPLE; dot = '● '; break;
-
-        case 'FAILED':  /* had_ng_status batteries */
-            style = RED; dot = '● '; break;
-
         case 'NOT ASSIGNED':
             style = GREY; break;
-
         default:
             style = GREY; break;
     }
@@ -107,7 +92,6 @@ const Traceability = {
             /* ── Reset ── */
             .tr-page *, .tr-page *::before, .tr-page *::after { box-sizing: border-box; }
 
-            /* ── Page wrapper ── */
             .tr-page {
                 padding: var(--content-padding, 24px);
                 font-family: var(--font-family);
@@ -119,7 +103,6 @@ const Traceability = {
                 to   { opacity: 1; transform: translateY(0); }
             }
 
-            /* ── Header ── */
             .tr-header { margin-bottom: 24px; }
 
             .tr-header h1 {
@@ -136,9 +119,6 @@ const Traceability = {
                 margin: 0;
             }
 
-            /* ════════════════════════
-               FILTER CARD
-            ════════════════════════ */
             .tr-filter-card {
                 background: var(--color-bg-card);
                 border: 1px solid var(--color-border);
@@ -160,15 +140,6 @@ const Traceability = {
                 margin-bottom: 14px;
             }
 
-            /*
-             * KEY FIX: CSS Grid with explicit columns.
-             * Each field has a defined lane — nothing can drift
-             * regardless of content or viewport changes.
-             *
-             * Desktop: [Battery ID wide] [From] [To] [Status] [Btn]
-             * Tablet:  3-col, btn spans full row
-             * Mobile:  1-col stack
-             */
             .tr-filter-grid {
                 display: grid;
                 grid-template-columns: 2.2fr 1fr 1fr 1.1fr auto;
@@ -177,9 +148,7 @@ const Traceability = {
             }
 
             @media (max-width: 1080px) {
-                .tr-filter-grid {
-                    grid-template-columns: 1fr 1fr 1fr;
-                }
+                .tr-filter-grid { grid-template-columns: 1fr 1fr 1fr; }
                 .tr-btn-col { grid-column: 1 / -1; }
             }
 
@@ -193,7 +162,7 @@ const Traceability = {
                 display: flex;
                 flex-direction: column;
                 gap: 5px;
-                min-width: 0; /* prevent grid blowout */
+                min-width: 0;
             }
 
             .tr-label {
@@ -205,7 +174,6 @@ const Traceability = {
                 white-space: nowrap;
             }
 
-            /* Input with icon */
             .tr-input-wrap {
                 position: relative;
                 display: flex;
@@ -222,7 +190,6 @@ const Traceability = {
                 z-index: 1;
             }
 
-            /* Shared input/select base */
             .tr-ctrl {
                 width: 100%;
                 height: 40px;
@@ -243,10 +210,8 @@ const Traceability = {
             }
 
             .tr-ctrl::placeholder { color: var(--color-text-tertiary); }
-
             .tr-ctrl--icon { padding-left: 34px; }
 
-            /* Native select */
             .tr-ctrl.tr-select {
                 appearance: none;
                 -webkit-appearance: none;
@@ -257,7 +222,6 @@ const Traceability = {
                 padding-right: 30px;
             }
 
-            /* Search button */
             .tr-search-btn {
                 display: inline-flex;
                 align-items: center;
@@ -282,7 +246,6 @@ const Traceability = {
             .tr-search-btn:hover  { background: var(--color-primary-light); box-shadow: 0 3px 10px rgba(27,58,92,0.24); }
             .tr-search-btn:active { transform: scale(0.98); }
 
-            /* Clear link */
             .tr-clear-row {
                 display: flex;
                 justify-content: flex-end;
@@ -304,9 +267,6 @@ const Traceability = {
             }
             .tr-clear-btn:hover { color: var(--color-text-primary); }
 
-            /* ════════════════════════
-               STATS BAR
-            ════════════════════════ */
             .tr-stats {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -344,9 +304,6 @@ const Traceability = {
                 margin-top: 2px;
             }
 
-            /* ════════════════════════
-               RESULTS CARD
-            ════════════════════════ */
             .tr-card {
                 background: var(--color-bg-card);
                 border: 1px solid var(--color-border);
@@ -384,12 +341,6 @@ const Traceability = {
                 padding: 2px 10px;
             }
 
-            /*
-             * KEY FIX: Horizontal scroll wrapper.
-             * Table has a min-width so it never crushes columns;
-             * the wrapper scrolls horizontally instead of
-             * breaking the page layout.
-             */
             .tr-scroll {
                 width: 100%;
                 overflow-x: auto;
@@ -444,7 +395,6 @@ const Traceability = {
                 border-bottom-color: transparent;
             }
 
-            /* ── Expand button ── */
             .tr-expand-cell {
                 width: 40px;
                 text-align: center;
@@ -480,7 +430,6 @@ const Traceability = {
                 transform: rotate(90deg);
             }
 
-            /* ── Detail row ── */
             .tr-det-row { display: none; }
             .tr-det-row.show { display: table-row; }
 
@@ -522,7 +471,6 @@ const Traceability = {
                 color: var(--color-text-primary);
             }
 
-            /* Cell tags */
             .tr-cells {
                 display: flex;
                 flex-wrap: wrap;
@@ -553,7 +501,6 @@ const Traceability = {
                 padding: 2px 10px;
             }
 
-            /* Download button */
             .tr-dl-btn {
                 display: inline-flex;
                 align-items: center;
@@ -571,14 +518,12 @@ const Traceability = {
             }
             .tr-dl-btn:hover { background: var(--color-primary-light); }
 
-            /* Mono */
             .tr-mono {
                 font-family: var(--font-mono);
                 font-size: 12px;
                 font-weight: 500;
             }
 
-            /* Skeleton shimmer */
             @keyframes tr-shimmer {
                 0%   { background-position: -800px 0; }
                 100% { background-position:  800px 0; }
@@ -598,7 +543,6 @@ const Traceability = {
                 animation: tr-shimmer 1.4s ease-in-out infinite;
             }
 
-            /* Empty state */
             .tr-empty {
                 text-align: center;
                 padding: 52px 24px;
@@ -613,19 +557,16 @@ const Traceability = {
             }
             .tr-empty-sub { font-size: var(--text-sm); margin: 0; }
 
-            /* Pagination */
             .tr-pag { padding: 14px 20px; border-top: 1px solid var(--color-border-light); }
         </style>
 
         <div class="tr-page">
 
-            <!-- Header -->
             <div class="tr-header">
                 <h1>Battery Traceability</h1>
                 <p>Full manufacturing history and component trace for every battery pack</p>
             </div>
 
-            <!-- Filter Card -->
             <div class="tr-filter-card">
                 <div class="tr-filter-eyebrow">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -636,7 +577,6 @@ const Traceability = {
 
                 <div class="tr-filter-grid">
 
-                    <!-- Battery ID -->
                     <div class="tr-field">
                         <label class="tr-label" for="tr-bid">Battery ID</label>
                         <div class="tr-input-wrap">
@@ -657,19 +597,16 @@ const Traceability = {
                         </div>
                     </div>
 
-                    <!-- From date -->
                     <div class="tr-field">
                         <label class="tr-label" for="tr-dfrom">From Date</label>
                         <input type="date" id="tr-dfrom" class="tr-ctrl" />
                     </div>
 
-                    <!-- To date -->
                     <div class="tr-field">
                         <label class="tr-label" for="tr-dto">To Date</label>
                         <input type="date" id="tr-dto" class="tr-ctrl" />
                     </div>
 
-                    <!-- Status -->
                     <div class="tr-field">
                         <label class="tr-label" for="tr-status">Status</label>
                         <select id="tr-status" class="tr-ctrl tr-select">
@@ -682,7 +619,6 @@ const Traceability = {
                         </select>
                     </div>
 
-                    <!-- Search button -->
                     <div class="tr-field tr-btn-col">
                         <label class="tr-label" style="visibility:hidden" aria-hidden="true">Search</label>
                         <button id="tr-search" class="tr-search-btn">
@@ -705,10 +641,8 @@ const Traceability = {
                 </div>
             </div>
 
-            <!-- Stats injected by JS -->
             <div id="tr-stats"></div>
 
-            <!-- Results -->
             <div class="tr-card">
                 <div class="tr-card-header">
                     <p class="tr-card-title">Results</p>
@@ -723,8 +657,6 @@ const Traceability = {
         </div>`;
     },
 
-    /* ═══════════════════════════════════════════════════ */
-
     init() {
         let page = 1;
 
@@ -733,7 +665,6 @@ const Traceability = {
         const dto    = () => _nd(document.getElementById('tr-dto').value);
         const status = () => document.getElementById('tr-status').value;
 
-        // Initial load
         _go(1);
 
         document.getElementById('tr-search').addEventListener('click', () => { page = 1; _go(1); });
@@ -741,14 +672,12 @@ const Traceability = {
 
         document.getElementById('tr-clear').addEventListener('click', () => {
             ['tr-bid','tr-dfrom','tr-dto','tr-status'].forEach(id => {
-                const el = document.getElementById(id);
-                el.value = '';
+                document.getElementById(id).value = '';
             });
             page = 1;
             _go(1);
         });
 
-        /* ── Fetch ── */
         async function _go(p) {
             _skeleton();
 
@@ -798,7 +727,6 @@ const Traceability = {
             }
         }
 
-        /* ── Stats ── */
         function _stats(items, pag) {
             const el = document.getElementById('tr-stats');
             if (!el) return;
@@ -827,7 +755,6 @@ const Traceability = {
                 </div>`;
         }
 
-        /* ── Table ── */
         function _table(items) {
             const el = document.getElementById('tr-results');
             if (!items?.length) {
@@ -878,7 +805,6 @@ const Traceability = {
                     <tbody>${rows}</tbody>
                 </table>`;
 
-            // Expand/collapse handlers
             el.querySelectorAll('.tr-xbtn').forEach(btn => {
                 btn.addEventListener('click', e => {
                     e.stopPropagation();
@@ -887,7 +813,6 @@ const Traceability = {
                     const dd     = document.getElementById(`${rid}-d`);
                     const isOpen = btn.classList.contains('open');
 
-                    // close all others
                     el.querySelectorAll('.tr-xbtn.open').forEach(b => {
                         if (b === btn) return;
                         b.classList.remove('open');
@@ -901,7 +826,6 @@ const Traceability = {
                 });
             });
 
-            // Click row = toggle
             el.querySelectorAll('.tr-row').forEach(r => {
                 r.addEventListener('click', e => {
                     if (!e.target.closest('.tr-xbtn')) r.querySelector('.tr-xbtn').click();
@@ -950,7 +874,6 @@ const Traceability = {
             return `<div><div class="tr-det-lbl">${label}</div><div class="tr-det-val">${inner}</div></div>`;
         }
 
-        /* ── Pagination ── */
         function _pag(data, p) {
             const el = document.getElementById('tr-pag');
             el.innerHTML = Pagination.render({
@@ -967,7 +890,6 @@ const Traceability = {
             });
         }
 
-        /* ── Helpers ── */
         function _count(n, pag) {
             const el    = document.getElementById('tr-count');
             if (!el) return;
@@ -1023,7 +945,6 @@ const Traceability = {
     }
 };
 
-/* module-level helper used in render() before init() runs */
 function _emptyHtml(msg) {
     return `
         <div class="tr-empty">
@@ -1037,11 +958,14 @@ function _emptyHtml(msg) {
 
 export default Traceability;
 
-/* ── Global download handler (unchanged from original) ── */
+/* ── Global download handler ── */
 window.downloadBatteryReport = function(batteryId) {
     if (!batteryId || batteryId === '—') { alert('No Battery ID found.'); return; }
-    fetch(`http://localhost:8000/reports/generate-full-audit/${encodeURIComponent(batteryId)}`, {
-        method: 'GET', headers: { accept: 'application/json' }
+
+    // ✅ Uses _API_BASE — auto-switches between localhost and production
+    fetch(`${_API_BASE}/reports/generate-full-audit/${encodeURIComponent(batteryId)}`, {
+        method: 'GET',
+        headers: { accept: 'application/json' }
     })
     .then(res => {
         if (!res.ok) throw new Error('Failed');

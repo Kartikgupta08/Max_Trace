@@ -11,8 +11,6 @@
 import API from '../../core/api.js';
 import Toast from '../../components/toast.js';
 
-const API_BASE = 'http://localhost:8000';
-
 function _esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 function _formatSize(bytes) {
@@ -418,23 +416,23 @@ const PdiInspection = {
     init() {
 
         /* ══════════════════════════════════════════
-           SECTION 1 — File Upload (unchanged logic)
+           SECTION 1 — File Upload
         ══════════════════════════════════════════ */
-        const dropZone       = document.getElementById('pdi-drop-zone');
-        const fileInput      = document.getElementById('pdi-file-input');
-        const fileSummary    = document.getElementById('pdi-file-summary');
-        const fileCountEl    = document.getElementById('pdi-file-count');
-        const totalSizeEl    = document.getElementById('pdi-total-size');
-        const fileListEl     = document.getElementById('pdi-file-list');
-        const clearBtn       = document.getElementById('btn-clear-files');
-        const progressSection= document.getElementById('pdi-progress-section');
-        const progressLabel  = document.getElementById('pdi-progress-label');
-        const progressPercent= document.getElementById('pdi-progress-percent');
-        const progressBar    = document.getElementById('pdi-progress-bar');
-        const progressDetail = document.getElementById('pdi-progress-detail');
-        const submitBtn      = document.getElementById('btn-submit-pdi');
-        const resetBtn       = document.getElementById('btn-reset-pdi');
-        const resultEl       = document.getElementById('pdi-result');
+        const dropZone        = document.getElementById('pdi-drop-zone');
+        const fileInput       = document.getElementById('pdi-file-input');
+        const fileSummary     = document.getElementById('pdi-file-summary');
+        const fileCountEl     = document.getElementById('pdi-file-count');
+        const totalSizeEl     = document.getElementById('pdi-total-size');
+        const fileListEl      = document.getElementById('pdi-file-list');
+        const clearBtn        = document.getElementById('btn-clear-files');
+        const progressSection = document.getElementById('pdi-progress-section');
+        const progressLabel   = document.getElementById('pdi-progress-label');
+        const progressPercent = document.getElementById('pdi-progress-percent');
+        const progressBar     = document.getElementById('pdi-progress-bar');
+        const progressDetail  = document.getElementById('pdi-progress-detail');
+        const submitBtn       = document.getElementById('btn-submit-pdi');
+        const resetBtn        = document.getElementById('btn-reset-pdi');
+        const resultEl        = document.getElementById('pdi-result');
 
         let selectedFiles = [];
         let isUploading   = false;
@@ -617,14 +615,11 @@ const PdiInspection = {
 
         let rtdBusy = false;
 
-        /* Enable button only when input has value */
         rtdInput.addEventListener('input', () => {
             rtdBtn.disabled = rtdInput.value.trim().length === 0;
-            /* Hide previous result when user starts typing again */
             if (rtdInput.value.trim()) _rtdHideResult();
         });
 
-        /* Enter key submits */
         rtdInput.addEventListener('keydown', e => {
             if (e.key === 'Enter' && !rtdBtn.disabled && !rtdBusy) _rtdSubmit();
         });
@@ -641,15 +636,13 @@ const PdiInspection = {
             _rtdHideResult();
 
             try {
-                const res = await fetch(
-                    `${API_BASE}/battery-models/${encodeURIComponent(batteryId)}/mark-ready`,
-                    { method: 'PATCH', headers: { 'Content-Type': 'application/json' } }
+                // ✅ Uses API.patch — no raw fetch, no API_BASE reference needed
+                const res = await API.patch(
+                    `/battery-models/${encodeURIComponent(batteryId)}/mark-ready`
                 );
 
-                const data = await res.json().catch(() => ({}));
-
-                if (res.ok && data.status === 'success') {
-                    /* ✅ Success */
+                if (res.success) {
+                    // ✅ Success
                     _rtdShowResult('success',
                         '✓',
                         `<strong>Marked as Ready to Dispatch</strong>Battery <code style="font-family:var(--font-mono);font-size:12px;padding:1px 5px;background:rgba(0,0,0,0.06);border-radius:3px;">${_esc(batteryId)}</code> is now <strong>READY TO DISPATCH</strong>.`
@@ -659,25 +652,25 @@ const PdiInspection = {
                     rtdInput.focus();
 
                 } else if (res.status === 404) {
-                    /* ❌ Battery not found */
+                    // ❌ Battery not found
                     _rtdShowResult('error',
                         '✕',
                         `<strong>Battery Not Found</strong>No battery with ID <code style="font-family:var(--font-mono);font-size:12px;padding:1px 5px;background:rgba(0,0,0,0.06);border-radius:3px;">${_esc(batteryId)}</code> exists in the system.`
                     );
 
                 } else if (res.status === 400) {
-                    /* ⚠ Wrong status */
-                    const detail = data.detail || 'Battery is not in FG PENDING status.';
+                    // ⚠ Wrong status
+                    const detail = res.detail || res.message || 'Battery is not in FG PENDING status.';
                     _rtdShowResult('warn',
                         '⚠',
                         `<strong>Cannot Mark as Ready</strong>${_esc(detail)}`
                     );
 
                 } else {
-                    /* ❌ Unexpected error */
+                    // ❌ Unexpected error
                     _rtdShowResult('error',
                         '✕',
-                        `<strong>Request Failed</strong>${_esc(data.detail || 'An unexpected error occurred. Please try again.')}`
+                        `<strong>Request Failed</strong>${_esc(res.detail || res.message || 'An unexpected error occurred. Please try again.')}`
                     );
                 }
 
