@@ -642,7 +642,7 @@ const PdiInspection = {
 
             try {
                 const res = await fetch(
-                    `${API_BASE}/api/v1/battery/${encodeURIComponent(batteryId)}/mark-ready`,
+                    `${API_BASE}/battery-models/${encodeURIComponent(batteryId)}/mark-ready`,
                     { method: 'PATCH', headers: { 'Content-Type': 'application/json' } }
                 );
 
