@@ -33,12 +33,12 @@ const ROUTES = [
 
     // ─── Production Routes ────────────────────────────────────────────────────
     {
-        path:    '#/production/cell-registration',
-        title:   'Cell Registration',
-        roles:   ['admin', 'Cell Registration'],
+        path:    '#/production/model-management',
+        title:   'Model Management',
+        roles:   ['admin'],
         section: 'Production',
-        icon:    'battery_std',
-        loader:  () => import('./pages/production/cellRegistration.js'),
+        icon:    'battery_charging_full',
+        loader:  () => import('./pages/production/modelManagement.js'),
     },
     {
         path:    '#/production/cell-grading',

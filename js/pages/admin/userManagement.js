@@ -12,7 +12,7 @@ import API from '../../core/api.js';
  * User Management) without needing to be listed here.
  */
 const PRODUCTION_ROLES = [
-    'Cell Registration',
+    'Model Management',
     'Cell Grading',
     'Cell Sorting',
     'Assembly and Mapping',
@@ -22,7 +22,6 @@ const PRODUCTION_ROLES = [
     'PDI Inspection',
     'Dispatch',
 ];
-
 const UserManagement = {
     users: [],
 

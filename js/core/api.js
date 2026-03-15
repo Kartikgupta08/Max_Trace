@@ -14,7 +14,7 @@
 import Auth from './auth.js';
 import Toast from '../components/toast.js';
 
-const API_BASE = 'https://shrey7781-maxvolt-erp.hf.space';
+const API_BASE = 'http://localhost:8000';
 
 /**
  * Core fetch wrapper with auth headers & error handling.
