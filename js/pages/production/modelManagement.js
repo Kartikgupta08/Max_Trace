@@ -566,7 +566,7 @@ const ModelManagement = {
                             <code style="background:#D6E8F7;padding:1px 7px;border-radius:4px;font-size:12px;">battery_id</code>
                             &nbsp;and&nbsp;
                             <code style="background:#D6E8F7;padding:1px 7px;border-radius:4px;font-size:12px;">model_name</code>
-                            — <strong>model_name</strong> must exactly match a Model ID in the table above. Existing IDs are skipped.
+                            — <strong>model_name</strong> must exactly match a Model ID in the table below. Existing IDs are skipped.
                         </div>
 
                         <!-- Drop zone -->
