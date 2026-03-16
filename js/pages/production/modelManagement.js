@@ -1,12 +1,15 @@
 /**
  * modelManagement.js — Battery Model Management Page
  *
+ * UX improvement: Bulk Link section moved into a slide-down drawer
+ * triggered from the page header — no scrolling needed.
+ *
  * APIs:
- *   GET    /battery-models/summary           → load all models
- *   POST   /battery-models/                  → create model
- *   PATCH  /battery-models/{id}/update       → update model
- *   DELETE /battery-models/{id}              → delete model
- *   POST   /battery-models/bulk-link         → Excel upload
+ *   GET    /battery-models/summary      → load all models
+ *   POST   /battery-models/             → create model
+ *   PATCH  /battery-models/{id}/update  → update model
+ *   DELETE /battery-models/{id}         → delete model
+ *   POST   /battery-models/bulk-link    → Excel upload
  */
 
 import API   from '../../core/api.js';
@@ -24,6 +27,8 @@ let _allModels  = [];
 let _filtered   = [];
 let _searchTerm = '';
 
+/* ── Helpers ─────────────────────────────────────────────── */
+
 function _esc(str) {
     const d = document.createElement('div');
     d.textContent = String(str ?? '');
@@ -33,8 +38,8 @@ function _esc(str) {
 function _cellTypeBadge(val) {
     if (!val) return '<span style="color:var(--color-text-tertiary);">—</span>';
     const v = String(val).toUpperCase();
-    if (v === 'NMC') return `<span style="display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.3px;background:#E3F0FC;color:#1565C0;border:1px solid #90C2F9;">NMC</span>`;
-    if (v === 'LFP') return `<span style="display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.3px;background:#E6F5ED;color:#0F8A4F;border:1px solid #B3DFC8;">LFP</span>`;
+    if (v === 'NMC') return `<span style="display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#E3F0FC;color:#1565C0;border:1px solid #90C2F9;">NMC</span>`;
+    if (v === 'LFP') return `<span style="display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#E6F5ED;color:#0F8A4F;border:1px solid #B3DFC8;">LFP</span>`;
     return `<span style="display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--color-bg-body);color:var(--color-text-secondary);border:1px solid var(--color-border);">${_esc(val)}</span>`;
 }
 
@@ -55,6 +60,8 @@ function _categoryBadge(cat) {
     const s = map[cat] || 'background:var(--color-bg-body);color:var(--color-text-secondary);border:1px solid var(--color-border);';
     return `<span style="display:inline-flex;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;${s}">${_esc(cat || '—')}</span>`;
 }
+
+/* ── Data ────────────────────────────────────────────────── */
 
 async function _loadModels() {
     const tbody = document.getElementById('mm-tbody');
@@ -144,6 +151,8 @@ function _renderTable() {
     tbody.querySelectorAll('.mm-delete-btn').forEach(btn =>
         btn.addEventListener('click', () => _openDeleteModal(btn.dataset.id)));
 }
+
+/* ── Add Model Modal ─────────────────────────────────────── */
 
 function _openAddModal() {
     Modal.open({
@@ -246,6 +255,8 @@ async function _submitAddModel() {
     else Toast.error(typeof res.detail === 'string' ? res.detail : (res.message || 'Failed to create model.'));
 }
 
+/* ── Edit Modal ──────────────────────────────────────────── */
+
 function _openEditModal(modelId) {
     const model = _allModels.find(m => m.model_id === modelId);
     if (!model) { Toast.error('Model not found.'); return; }
@@ -324,6 +335,8 @@ async function _submitEditModel(modelId) {
     else Toast.error(typeof res.detail === 'string' ? res.detail : (res.message || 'Update failed.'));
 }
 
+/* ── Delete Modal ────────────────────────────────────────── */
+
 function _openDeleteModal(modelId) {
     Modal.open({
         title: 'Delete Model',
@@ -358,16 +371,42 @@ async function _submitDelete(modelId) {
     }
 }
 
+/* ── Bulk Link drawer ────────────────────────────────────── */
+
 function _initBulkLink() {
+    const drawerBtn = document.getElementById('mm-bulk-drawer-btn');
+    const drawer    = document.getElementById('mm-bulk-drawer');
     const dropZone  = document.getElementById('mm-drop-zone');
     const fileInput = document.getElementById('mm-file-input');
     const fileInfo  = document.getElementById('mm-file-info');
     const submitBtn = document.getElementById('mm-bulk-submit');
     const resetBtn  = document.getElementById('mm-bulk-reset');
     const resultEl  = document.getElementById('mm-bulk-result');
+    const arrow     = document.getElementById('mm-bulk-arrow');
 
-    let selectedFile = null, isUploading = false;
+    let selectedFile = null, isUploading = false, isOpen = false;
 
+    // ── Toggle drawer open / close ──
+    drawerBtn.addEventListener('click', () => {
+        isOpen = !isOpen;
+        if (isOpen) {
+            drawer.style.maxHeight  = drawer.scrollHeight + 'px';
+            drawer.style.opacity    = '1';
+            arrow.style.transform   = 'rotate(180deg)';
+            drawerBtn.style.background    = 'var(--color-primary)';
+            drawerBtn.style.color         = '#fff';
+            drawerBtn.style.borderColor   = 'var(--color-primary)';
+        } else {
+            drawer.style.maxHeight  = '0';
+            drawer.style.opacity    = '0';
+            arrow.style.transform   = 'rotate(0deg)';
+            drawerBtn.style.background    = '';
+            drawerBtn.style.color         = '';
+            drawerBtn.style.borderColor   = '';
+        }
+    });
+
+    // ── File selection ──
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
     fileInput.addEventListener('change', e => { if (e.target.files.length > 0) _setFile(e.target.files[0]); });
@@ -386,19 +425,24 @@ function _initBulkLink() {
         fileInfo.innerHTML = `
             <span class="material-symbols-outlined" style="font-size:20px;color:var(--color-success);flex-shrink:0;">check_circle</span>
             <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--color-text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(file.name)}</span>
-            <span style="font-size:12px;color:var(--color-text-tertiary);flex-shrink:0;">${(file.size/1024).toFixed(1)} KB</span>`;
+            <span style="font-size:12px;color:var(--color-text-tertiary);flex-shrink:0;">${(file.size / 1024).toFixed(1)} KB</span>`;
         dropZone.classList.add('file-uploader--has-file');
-        submitBtn.disabled = false;
+        submitBtn.disabled    = false;
         resultEl.style.display = 'none';
+        // Recalculate max-height after content change
+        if (isOpen) drawer.style.maxHeight = drawer.scrollHeight + 'px';
     }
 
     resetBtn.addEventListener('click', () => {
         selectedFile = null; fileInput.value = '';
         fileInfo.style.display = 'none'; fileInfo.innerHTML = '';
         dropZone.classList.remove('file-uploader--has-file', 'file-uploader--active');
-        submitBtn.disabled = true; resultEl.style.display = 'none';
+        submitBtn.disabled     = true;
+        resultEl.style.display = 'none';
+        if (isOpen) drawer.style.maxHeight = drawer.scrollHeight + 'px';
     });
 
+    // ── Upload ──
     submitBtn.addEventListener('click', async () => {
         if (!selectedFile || isUploading) return;
         isUploading = true;
@@ -419,26 +463,33 @@ function _initBulkLink() {
                 <div style="margin-top:var(--space-3);padding:var(--space-3) var(--space-4);background:var(--color-error-bg);border:1px solid var(--color-error-border);border-radius:var(--radius-md);font-size:12px;text-align:left;">
                     <strong style="color:var(--color-error);">⚠ ${res.data.errors.length} row(s) failed:</strong>
                     <div style="margin-top:var(--space-2);max-height:120px;overflow-y:auto;">
-                        ${res.data.errors.map(e => `<div style="padding:3px 0;border-bottom:1px solid var(--color-error-border);color:var(--color-text-secondary);">Row ${e.row}: ${_esc(e.battery_id || '')} — ${_esc(e.reason)}</div>`).join('')}
+                        ${res.data.errors.map(e =>
+                            `<div style="padding:3px 0;border-bottom:1px solid var(--color-error-border);color:var(--color-text-secondary);">
+                                Row ${e.row}: ${_esc(e.battery_id || '')} — ${_esc(e.reason)}
+                            </div>`
+                        ).join('')}
                     </div>
                 </div>` : '';
 
             resultEl.style.display = 'block';
             resultEl.innerHTML = `
-                <div class="confirmation confirmation--${(s.errors||0) > 0 ? 'warning' : 'success'}">
-                    <div class="confirmation__icon">${(s.errors||0) > 0 ? '⚠' : '✓'}</div>
+                <div class="confirmation confirmation--${(s.errors || 0) > 0 ? 'warning' : 'success'}">
+                    <div class="confirmation__icon">${(s.errors || 0) > 0 ? '⚠' : '✓'}</div>
                     <div class="confirmation__title">Bulk Link Complete</div>
                     <div class="confirmation__detail">
                         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-2) var(--space-5);font-size:13px;margin-top:var(--space-3);text-align:center;">
                             <div><div style="font-weight:700;font-size:20px;color:var(--color-text-primary);">${s.total_rows ?? '—'}</div><div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;">Total Rows</div></div>
                             <div><div style="font-weight:700;font-size:20px;color:var(--color-success);">${s.created ?? 0}</div><div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;">Created</div></div>
                             <div><div style="font-weight:700;font-size:20px;color:var(--color-warning);">${s.skipped ?? 0}</div><div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;">Skipped</div></div>
-                            <div><div style="font-weight:700;font-size:20px;color:${(s.errors||0)>0?'var(--color-error)':'var(--color-text-tertiary)'};">${s.errors ?? 0}</div><div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;">Errors</div></div>
+                            <div><div style="font-weight:700;font-size:20px;color:${(s.errors || 0) > 0 ? 'var(--color-error)' : 'var(--color-text-tertiary)'};">${s.errors ?? 0}</div><div style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;">Errors</div></div>
                         </div>
                         ${errorsHtml}
                     </div>
                 </div>`;
+
             Toast.success(`${s.created ?? 0} batteries linked, ${s.skipped ?? 0} skipped.`);
+            // Recalculate height after result appears
+            if (isOpen) setTimeout(() => { drawer.style.maxHeight = drawer.scrollHeight + 'px'; }, 50);
             if (!s.errors) setTimeout(() => { resetBtn.click(); resultEl.style.display = 'none'; }, 5000);
         } else {
             Toast.error(typeof res.detail === 'string' ? res.detail : (res.message || 'Upload failed.'));
@@ -446,16 +497,113 @@ function _initBulkLink() {
     });
 }
 
+/* ── Component ───────────────────────────────────────────── */
+
 const ModelManagement = {
     render() {
         return `
             <div class="content__inner">
+
+                <!-- ── Page header with all 3 action buttons ── -->
                 <div class="page-header">
-                    <h1 class="page-header__title">Model Management</h1>
-                    <p class="page-header__subtitle">Define battery models, manage parameters, and link batteries into production</p>
+                    <div>
+                        <h1 class="page-header__title">Model Management</h1>
+                        <p class="page-header__subtitle">Define battery models, manage parameters, and link batteries into production</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:var(--space-3);">
+                        <!-- Bulk Link toggle button — lives in header, always visible -->
+                        <button type="button" id="mm-bulk-drawer-btn"
+                            style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;
+                                   border-radius:var(--radius-md);font-size:13px;font-weight:600;
+                                   background:white;color:var(--color-primary);
+                                   border:1px solid var(--color-primary);cursor:pointer;
+                                   font-family:var(--font-family);transition:all 180ms ease;"
+                            title="Toggle Bulk Link panel">
+                            <span class="material-symbols-outlined" style="font-size:18px;">upload_file</span>
+                            Bulk Link
+                            <span class="material-symbols-outlined" id="mm-bulk-arrow"
+                                style="font-size:16px;transition:transform 200ms ease;">
+                                expand_more
+                            </span>
+                        </button>
+                        <button type="button" id="mm-add-btn" class="btn btn--primary"
+                            style="display:inline-flex;align-items:center;gap:6px;height:36px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;">add</span>
+                            Add Model
+                        </button>
+                    </div>
                 </div>
 
-                <div class="card" style="margin-bottom:var(--space-6);">
+                <!-- ── Bulk Link slide-down drawer ── -->
+                <!-- max-height transition gives the smooth open/close animation -->
+                <div id="mm-bulk-drawer"
+                    style="max-height:0;opacity:0;overflow:hidden;
+                           transition:max-height 320ms ease, opacity 240ms ease;
+                           margin-bottom:0;">
+
+                    <div style="background:var(--color-bg-card);border:1px solid var(--color-border);
+                                border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
+                                padding:var(--space-5) var(--space-6);margin-bottom:var(--space-5);">
+
+                        <!-- Drawer header -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4);">
+                            <div style="display:flex;align-items:center;gap:var(--space-3);">
+                                <div style="width:34px;height:34px;border-radius:var(--radius-md);background:var(--color-primary-surface);color:var(--color-primary);display:flex;align-items:center;justify-content:center;">
+                                    <span class="material-symbols-outlined" style="font-size:19px;">upload_file</span>
+                                </div>
+                                <div>
+                                    <div style="font-size:14px;font-weight:700;color:var(--color-text-primary);">Bulk Link Batteries to Models</div>
+                                    <div style="font-size:12px;color:var(--color-text-tertiary);margin-top:1px;">Upload Excel to register batteries and link them to a model in PROD status</div>
+                                </div>
+                            </div>
+                            <span style="font-size:11px;font-weight:700;color:var(--color-primary);border:1px solid #C5D5E8;background:var(--color-primary-surface);padding:3px 12px;border-radius:20px;letter-spacing:.5px;">BULK</span>
+                        </div>
+
+                        <!-- Info banner -->
+                        <div style="padding:11px 14px;background:var(--color-primary-surface);border:1px solid #C5D5E8;border-radius:var(--radius-md);margin-bottom:var(--space-4);font-size:13px;color:var(--color-primary);">
+                            <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px;margin-right:6px;">info</span>
+                            Required columns:&nbsp;
+                            <code style="background:#D6E8F7;padding:1px 7px;border-radius:4px;font-size:12px;">battery_id</code>
+                            &nbsp;and&nbsp;
+                            <code style="background:#D6E8F7;padding:1px 7px;border-radius:4px;font-size:12px;">model_name</code>
+                            — <strong>model_name</strong> must exactly match a Model ID in the table above. Existing IDs are skipped.
+                        </div>
+
+                        <!-- Drop zone -->
+                        <div id="mm-drop-zone" class="file-uploader" tabindex="0" role="button"
+                            aria-label="Upload Excel file" style="min-height:120px;cursor:pointer;">
+                            <div class="file-uploader__icon">📊</div>
+                            <div class="file-uploader__text"><strong>Click to upload</strong> or drag and drop</div>
+                            <div class="file-uploader__hint">Supported: .xlsx, .xls</div>
+                            <input type="file" id="mm-file-input" accept=".xlsx,.xls" style="display:none;">
+                        </div>
+
+                        <!-- Selected file info -->
+                        <div id="mm-file-info"
+                            style="display:none;align-items:center;gap:var(--space-3);margin-top:var(--space-3);
+                                   padding:10px 14px;background:var(--color-success-bg);
+                                   border:1px solid var(--color-success-border);border-radius:var(--radius-md);">
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="display:flex;justify-content:flex-end;gap:var(--space-3);
+                                    margin-top:var(--space-4);padding-top:var(--space-4);
+                                    border-top:1px solid var(--color-border-light);">
+                            <button type="button" id="mm-bulk-reset" class="btn btn--secondary">Reset</button>
+                            <button type="button" id="mm-bulk-submit" class="btn btn--primary btn--lg"
+                                disabled style="display:inline-flex;align-items:center;gap:8px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;">upload_file</span>
+                                Upload &amp; Link
+                            </button>
+                        </div>
+
+                        <!-- Result -->
+                        <div id="mm-bulk-result" style="display:none;margin-top:var(--space-4);"></div>
+                    </div>
+                </div>
+
+                <!-- ── Models table ── -->
+                <div class="card">
                     <div class="card__header">
                         <div style="display:flex;align-items:center;gap:var(--space-3);">
                             <div style="width:36px;height:36px;border-radius:var(--radius-md);background:var(--color-primary-surface);color:var(--color-primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -466,18 +614,12 @@ const ModelManagement = {
                                 <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:1px;" id="mm-count">Loading…</div>
                             </div>
                         </div>
-                        <div style="display:flex;align-items:center;gap:var(--space-3);">
-                            <div style="position:relative;">
-                                <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--color-text-tertiary);pointer-events:none;">search</span>
-                                <input type="text" id="mm-search" class="form-input"
-                                    placeholder="Search models…"
-                                    style="padding-left:34px;width:220px;height:36px;font-size:13px;">
-                            </div>
-                            <button type="button" id="mm-add-btn" class="btn btn--primary"
-                                style="display:inline-flex;align-items:center;gap:6px;height:36px;">
-                                <span class="material-symbols-outlined" style="font-size:18px;">add</span>
-                                Add Model
-                            </button>
+                        <div style="position:relative;">
+                            <span class="material-symbols-outlined"
+                                style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--color-text-tertiary);pointer-events:none;">search</span>
+                            <input type="text" id="mm-search" class="form-input"
+                                placeholder="Search models…"
+                                style="padding-left:34px;width:220px;height:36px;font-size:13px;">
                         </div>
                     </div>
                     <div style="overflow-x:auto;">
@@ -501,44 +643,6 @@ const ModelManagement = {
                     </div>
                 </div>
 
-                <div class="scanner-section" style="max-width:860px;">
-                    <div class="scanner-section__header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-5);">
-                        <div style="display:flex;align-items:center;gap:var(--space-3);">
-                            <div class="scanner-section__icon">
-                                <span class="material-symbols-outlined">upload_file</span>
-                            </div>
-                            <div>
-                                <div class="scanner-section__title">Bulk Link Batteries to Models</div>
-                      
-          <div class="scanner-section__subtitle">Upload Excel to create batteries in PROD status</div>
-                            </div>
-                        </div>
-                        <span style="font-size:11px;font-weight:700;color:var(--color-primary);border:1px solid #C5D5E8;background:var(--color-primary-surface);padding:3px 12px;border-radius:20px;letter-spacing:.5px;">BULK</span>
-                    </div>
-                    <div style="padding:12px 16px;background:var(--color-primary-surface);border:1px solid #C5D5E8;border-radius:var(--radius-md);margin-bottom:var(--space-5);font-size:13px;color:var(--color-primary);">
-                        <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px;margin-right:6px;">info</span>
-                        Required columns:&nbsp;
-                        <code style="background:#D6E8F7;padding:1px 7px;border-radius:4px;font-size:12px;">battery_id</code>
-                        &nbsp;and&nbsp;
-                        <code style="background:#D6E8F7;padding:1px 7px;border-radius:4px;font-size:12px;">model_name</code>
-                        — model_name must exactly match a Model ID above. Existing battery IDs are skipped.
-                    </div>
-                    <div id="mm-drop-zone" class="file-uploader" tabindex="0" role="button" aria-label="Upload Excel file" style="min-height:140px;cursor:pointer;">
-                        <div class="file-uploader__icon">📊</div>
-                        <div class="file-uploader__text"><strong>Click to upload</strong> or drag and drop</div>
-                        <div class="file-uploader__hint">Supported: .xlsx, .xls</div>
-                        <input type="file" id="mm-file-input" accept=".xlsx,.xls" style="display:none;">
-                    </div>
-                    <div id="mm-file-info" style="display:none;align-items:center;gap:var(--space-3);margin-top:var(--space-3);padding:10px 14px;background:var(--color-success-bg);border:1px solid var(--color-success-border);border-radius:var(--radius-md);"></div>
-                    <div style="display:flex;justify-content:flex-end;gap:var(--space-3);margin-top:var(--space-5);padding-top:var(--space-4);border-top:1px solid var(--color-border);">
-                        <button type="button" id="mm-bulk-reset" class="btn btn--secondary">Reset</button>
-                        <button type="button" id="mm-bulk-submit" class="btn btn--primary btn--lg" disabled style="display:inline-flex;align-items:center;gap:8px;">
-                            <span class="material-symbols-outlined" style="font-size:18px;">upload_file</span>
-                            Upload &amp; Link
-                        </button>
-                    </div>
-                    <div id="mm-bulk-result" style="display:none;margin-top:var(--space-5);"></div>
-                </div>
             </div>`;
     },
 
