@@ -11,7 +11,7 @@
  *   ✓ Exact backend field mapping from fetch_dashboard_stats()
  */
 
-import API from '../../core/api.js';
+import API, { API_BASE } from '../../core/api.js';
 import Auth from '../../core/auth.js';
 
 /* ─────────────────────────────────────────────────────────────
@@ -509,28 +509,26 @@ function _setupWS() {
 
     function setStatus(state, text) {
         if (!dot || !label) return;
-        dot.className   = `db-ws-dot ${state}`;
+        dot.className     = `db-ws-dot ${state}`;
         label.textContent = text;
     }
 
-    const token  = Auth.getToken();
-    const qs     = token ? `?token=${encodeURIComponent(token)}` : '';
-    // Derived from the same base as REST — no hardcoded hosts.
-    // Change API_BASE in api.js and WS follows automatically.
-    const _WS_BASE = 'https://shrey7781-maxvolt-erp.hf.space'
+    // ✅ Derive WS URL from API_BASE — always points to YOUR backend
+    // localhost:8000 → ws://localhost:8000/admin/ws/dashboard
+    // HuggingFace    → wss://shrey7781-maxvolt-erp.hf.space/admin/ws/dashboard
+    const wsURL = API_BASE
         .replace(/^https:\/\//, 'wss://')
-        .replace(/^http:\/\//, 'ws://');
-    const urls = [`${_WS_BASE}/admin/ws/dashboard${qs}`];
+        .replace(/^http:\/\//, 'ws://')
+        + '/admin/ws/dashboard';
 
     let attempt = 0, timer = null;
 
     function connect() {
-        const url = urls[attempt % urls.length];
         attempt++;
-        setStatus('waiting', `Connecting…`);
+        setStatus('waiting', 'Connecting…');
 
         let ws;
-        try { ws = new WebSocket(url); }
+        try { ws = new WebSocket(wsURL); }
         catch (e) { scheduleReconnect(); return; }
 
         ws.onopen = () => {
@@ -548,8 +546,8 @@ function _setupWS() {
             }
         };
 
-        ws.onerror  = ()  => setStatus('error', 'Error');
-        ws.onclose  = ev  => {
+        ws.onerror  = () => setStatus('error', 'Error');
+        ws.onclose  = () => {
             if (ws._manualClose) return;
             setStatus('waiting', 'Disconnected');
             scheduleReconnect();
