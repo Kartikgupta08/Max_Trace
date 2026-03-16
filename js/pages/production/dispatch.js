@@ -110,10 +110,10 @@ const Dispatch = {
             e.preventDefault();
             if (isSubmitting) return;
 
-            const batteryId = batteryInput.value.trim();
+            const batteryId    = batteryInput.value.trim();
             const customerName = document.getElementById('dispatch-customer').value.trim();
-            const invoiceId = document.getElementById('dispatch-invoice-id').value.trim();
-            const invoiceDate = document.getElementById('dispatch-invoice-date').value;
+            const invoiceId    = document.getElementById('dispatch-invoice-id').value.trim();
+            const invoiceDate  = document.getElementById('dispatch-invoice-date').value;
 
             if (!batteryId) {
                 batteryInput.classList.add('form-input--error');
@@ -140,10 +140,10 @@ const Dispatch = {
             let result;
             try {
                 result = await API.post('/dispatch/submit', {
-                    battery_id: batteryId,
+                    battery_id:    batteryId,
                     customer_name: customerName,
-                    invoice_id: invoiceId,
-                    invoice_date: invoiceDate
+                    invoice_id:    invoiceId,
+                    invoice_date:  invoiceDate
                 });
             } catch (err) {
                 result = { success: false, error: 'NETWORK_ERROR', message: err?.message || 'Network error' };
@@ -153,8 +153,10 @@ const Dispatch = {
             btn.disabled = false;
             btn.textContent = 'Confirm Dispatch';
 
-            if (result && (result.success || typeof result.data === 'string')) {
-                Toast.success('Dispatch registered successfully.');
+            // ── Success ──────────────────────────────────────────────────────
+            // api.js wraps the backend's { status, message } inside { success: true, data: {...} }
+            if (result && result.success && result.data && result.data.status === 'Success') {
+                Toast.success(result.data.message || 'Dispatch registered successfully.');
                 resultEl.style.display = 'block';
                 resultEl.innerHTML = `
                     <div class="confirmation confirmation--success">
@@ -175,15 +177,32 @@ const Dispatch = {
                     resultEl.style.display = 'none';
                     batteryInput.focus();
                 }, 3000);
-            } else if (result && result.error === 'VALIDATION_ERROR') {
+
+            // ── Quality gate / validation errors (400, 404, 422) ─────────────
+            // api.js returns error: 'HTTP_ERROR'    for 400 / 404  with detail string
+            // api.js returns error: 'VALIDATION_ERROR' for 422     with detail array
+            } else if (
+                result &&
+                (result.error === 'HTTP_ERROR' || result.error === 'VALIDATION_ERROR') &&
+                result.detail
+            ) {
+                const detailMsg = Array.isArray(result.detail)
+                    ? result.detail.map(d => d.msg).join(', ')
+                    : typeof result.detail === 'string'
+                        ? result.detail
+                        : JSON.stringify(result.detail);
+
                 resultEl.style.display = 'block';
                 resultEl.innerHTML = `
                     <div class="confirmation confirmation--error">
                         <div class="confirmation__icon">✕</div>
                         <div class="confirmation__title">Dispatch Failed</div>
-                        <div class="confirmation__detail">${_esc(typeof result.detail === 'string' ? result.detail : JSON.stringify(result.detail))}</div>
+                        <div class="confirmation__detail">${_esc(detailMsg)}</div>
                     </div>
                 `;
+
+            // ── Fallback (network error, 500, etc.) ──────────────────────────
+            // These are already toasted by api.js; just reset the button state.
             } else {
                 Toast.error('Dispatch failed. Please try again.');
             }
