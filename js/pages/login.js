@@ -5,13 +5,18 @@
  *   Left  — animated traceability cycle infographic (CSS-only, no external assets)
  *   Right — login form with MaxVolt logo
  *
- * Matches app design system (variables.css tokens).
- * No external dependencies — loads instantly.
+ * Fix: Login API call now uses raw fetch instead of API.post.
+ *   api.js treats every 401 as "Session expired" and fires a toast —
+ *   correct for all other pages, but on the login page a 401 means
+ *   "wrong credentials" and must show the inline error, not a toast.
+ *   Bypassing api.js for this one call solves it completely.
  */
 
 import Auth from '../core/auth.js';
 import Router from '../core/router.js';
-import API from '../core/api.js';
+
+// ── API base — same logic as api.js, kept in sync ──────────────────────────
+const _API_BASE = 'http://localhost:8000';
 
 const Login = {
     render() {
@@ -48,7 +53,6 @@ const Login = {
                 overflow: hidden;
             }
 
-            /* Subtle background geometry */
             .login-left::before {
                 content: '';
                 position: absolute;
@@ -73,7 +77,6 @@ const Login = {
                 pointer-events: none;
             }
 
-            /* Company logo top-left */
             .login-logo-wrap {
                 position: absolute;
                 top: 32px;
@@ -92,7 +95,6 @@ const Login = {
                 opacity: 0.92;
             }
 
-            /* Fallback if image fails */
             .login-logo-fallback {
                 display: none;
                 background: rgba(255,255,255,0.15);
@@ -108,7 +110,6 @@ const Login = {
             .login-logo-wrap img.errored + .login-logo-fallback { display: flex; }
             .login-logo-wrap img.errored { display: none; }
 
-            /* Headline */
             .login-left-headline {
                 text-align: center;
                 margin-bottom: 40px;
@@ -141,7 +142,6 @@ const Login = {
                 animation: lf-fade 0.5s 0.15s ease both;
             }
 
-            /* Outer ring */
             .trace-ring {
                 position: absolute;
                 inset: 0;
@@ -149,7 +149,6 @@ const Login = {
                 border: 1.5px dashed rgba(255,255,255,0.15);
             }
 
-            /* Inner ring */
             .trace-ring-inner {
                 position: absolute;
                 inset: 48px;
@@ -157,7 +156,6 @@ const Login = {
                 border: 1px solid rgba(255,255,255,0.08);
             }
 
-            /* Center badge */
             .trace-center {
                 position: absolute;
                 inset: 96px;
@@ -184,7 +182,6 @@ const Login = {
                 text-transform: uppercase;
             }
 
-            /* Each step node */
             .trace-step {
                 position: absolute;
                 width: 52px;
@@ -225,7 +222,6 @@ const Login = {
                 max-width: 44px;
             }
 
-            /* Connector arrows between steps — pure CSS */
             .trace-arrow {
                 position: absolute;
                 width: 28px;
@@ -252,35 +248,28 @@ const Login = {
                 from { transform: rotate(0deg); }
                 to   { transform: rotate(360deg); }
             }
-
-            .trace-ring {
-                animation: trace-spin 40s linear infinite;
-            }
+            .trace-ring { animation: trace-spin 40s linear infinite; }
 
             @keyframes trace-pulse {
                 0%, 100% { opacity: 1; transform: scale(1); }
                 50%       { opacity: 0.75; transform: scale(0.96); }
             }
-
-            .trace-center {
-                animation: trace-pulse 3s ease-in-out infinite;
-            }
+            .trace-center { animation: trace-pulse 3s ease-in-out infinite; }
 
             @keyframes trace-pop {
                 from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
                 to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
             }
-
-            .trace-step { animation: trace-pop 0.4s ease both; }
-            .trace-step:nth-child(3)  { animation-delay: 0.2s; }
-            .trace-step:nth-child(4)  { animation-delay: 0.28s; }
-            .trace-step:nth-child(5)  { animation-delay: 0.36s; }
-            .trace-step:nth-child(6)  { animation-delay: 0.44s; }
-            .trace-step:nth-child(7)  { animation-delay: 0.52s; }
-            .trace-step:nth-child(8)  { animation-delay: 0.60s; }
-            .trace-step:nth-child(9)  { animation-delay: 0.68s; }
-            .trace-step:nth-child(10) { animation-delay: 0.76s; }
-            .trace-step:nth-child(11) { animation-delay: 0.84s; }
+            .trace-step                { animation: trace-pop 0.4s ease both; }
+            .trace-step:nth-child(3)   { animation-delay: 0.20s; }
+            .trace-step:nth-child(4)   { animation-delay: 0.28s; }
+            .trace-step:nth-child(5)   { animation-delay: 0.36s; }
+            .trace-step:nth-child(6)   { animation-delay: 0.44s; }
+            .trace-step:nth-child(7)   { animation-delay: 0.52s; }
+            .trace-step:nth-child(8)   { animation-delay: 0.60s; }
+            .trace-step:nth-child(9)   { animation-delay: 0.68s; }
+            .trace-step:nth-child(10)  { animation-delay: 0.76s; }
+            .trace-step:nth-child(11)  { animation-delay: 0.84s; }
 
             .trace-caption {
                 margin-top: 32px;
@@ -377,9 +366,7 @@ const Login = {
                 margin-bottom: 28px;
             }
 
-            .login-field {
-                margin-bottom: 18px;
-            }
+            .login-field { margin-bottom: 18px; }
 
             .login-label {
                 display: block;
@@ -391,9 +378,7 @@ const Login = {
                 margin-bottom: 7px;
             }
 
-            .login-input-wrap {
-                position: relative;
-            }
+            .login-input-wrap { position: relative; }
 
             .login-input-icon {
                 position: absolute;
@@ -424,16 +409,21 @@ const Login = {
                 box-shadow: 0 0 0 3px var(--color-primary-surface);
             }
 
+            .login-input.login-input--error {
+                border-color: var(--color-error, #dc2626);
+                box-shadow: 0 0 0 3px rgba(220,38,38,0.1);
+            }
+
             .login-input::placeholder { color: var(--color-text-tertiary); }
 
             .login-error {
                 display: none;
                 align-items: center;
                 gap: 8px;
-                background: var(--color-error-bg);
-                border: 1px solid var(--color-error-border);
+                background: var(--color-error-bg, #FEF2F2);
+                border: 1px solid var(--color-error-border, #FECACA);
                 border-radius: 8px;
-                color: var(--color-error);
+                color: var(--color-error, #DC2626);
                 font-size: 13px;
                 font-weight: 500;
                 padding: 10px 12px;
@@ -498,9 +488,7 @@ const Login = {
                 to   { opacity: 1; transform: translateY(0); }
             }
 
-            .login-form-wrap {
-                animation: lf-fade 0.4s 0.1s ease both;
-            }
+            .login-form-wrap { animation: lf-fade 0.4s 0.1s ease both; }
 
             @media (max-width: 800px) {
                 .login-page { flex-direction: column; }
@@ -560,7 +548,8 @@ const Login = {
                             style="height:64px;width:auto;object-fit:contain;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;"
                             onerror="this.style.display='none';document.getElementById('login-brand-fallback').style.display='inline-flex';"
                         />
-                        <div id="login-brand-fallback" style="display:none;width:56px;height:56px;background:var(--color-primary);border-radius:14px;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 4px 16px rgba(27,58,92,0.25);">
+                        <div id="login-brand-fallback"
+                             style="display:none;width:56px;height:56px;background:var(--color-primary);border-radius:14px;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 4px 16px rgba(27,58,92,0.25);">
                             <span style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-1px;">MT</span>
                         </div>
                         <h1>MaxTrace</h1>
@@ -614,7 +603,9 @@ const Login = {
 
                         <div id="login-error" class="login-error" role="alert">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
-                                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
                             </svg>
                             <span id="login-error-msg"></span>
                         </div>
@@ -688,7 +679,7 @@ const Login = {
         const shell = document.querySelector('.app-shell');
         if (shell) shell.classList.add('app-shell--auth');
 
-        // ── Form logic ────────────────────────────────────────────────────────
+        // ── Form elements ─────────────────────────────────────────────────────
         const form      = document.getElementById('login-form');
         const userInput = document.getElementById('login-username');
         const passInput = document.getElementById('login-password');
@@ -701,10 +692,23 @@ const Login = {
         const showError = (msg) => {
             errorMsg.textContent = msg;
             errorEl.classList.add('visible');
+            // Highlight both fields on credential error
+            userInput.classList.add('login-input--error');
+            passInput.classList.add('login-input--error');
         };
 
-        const hideError = () => errorEl.classList.remove('visible');
+        const hideError = () => {
+            errorEl.classList.remove('visible');
+            userInput.classList.remove('login-input--error');
+            passInput.classList.remove('login-input--error');
+        };
 
+        // Clear field-level errors as the user starts typing again
+        [userInput, passInput].forEach(el =>
+            el.addEventListener('input', hideError)
+        );
+
+        // ── Submit ────────────────────────────────────────────────────────────
         form.addEventListener('submit', async e => {
             e.preventDefault();
             if (submitting) return;
@@ -723,26 +727,61 @@ const Login = {
             hideError();
 
             try {
-                // ✅ Uses API.post — no raw fetch, no API_BASE reference needed
-                const res = await API.post('/users/login', { username, password });
+                // ── Raw fetch — intentionally bypasses api.js ─────────────
+                // api.js converts every 401 into a "Session expired" toast,
+                // which is correct everywhere EXCEPT the login page where
+                // 401 means "wrong credentials". Using raw fetch here lets
+                // us handle the response ourselves and show the right message.
+                const response = await fetch(`${_API_BASE}/users/login`, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ username, password }),
+                });
 
-                if (!res.success) {
-                    const msg = Array.isArray(res.detail)
-                        ? res.detail.map(d => d.msg).join('; ')
-                        : (res.detail || res.message || 'Invalid username or password.');
+                let data;
+                try {
+                    data = await response.json();
+                } catch {
+                    throw new Error('Unexpected server response. Please try again.');
+                }
+
+                // ── 401 / 403 → wrong credentials ─────────────────────────
+                if (response.status === 401 || response.status === 403) {
+                    const msg = typeof data?.detail === 'string'
+                        ? data.detail
+                        : 'Invalid username or password.';
                     throw new Error(msg);
                 }
 
-                const data = res.data;
+                // ── 422 → validation error (empty fields reaching backend) ─
+                if (response.status === 422) {
+                    const msg = Array.isArray(data?.detail)
+                        ? data.detail.map(d => d.msg).join('; ')
+                        : 'Please check your username and password.';
+                    throw new Error(msg);
+                }
 
-                if (!data.assigned_roles || !Array.isArray(data.assigned_roles)) {
+                // ── Any other non-2xx ──────────────────────────────────────
+                if (!response.ok) {
+                    const msg = typeof data?.detail === 'string'
+                        ? data.detail
+                        : `Server error (${response.status}). Please try again.`;
+                    throw new Error(msg);
+                }
+
+                // ── Success ────────────────────────────────────────────────
+                // Support both envelope { success, data: {...} } and flat { username, ... }
+                const payload = data?.data ?? data;
+
+                if (!payload?.assigned_roles || !Array.isArray(payload.assigned_roles)) {
                     throw new Error('Invalid server response. Contact your administrator.');
                 }
 
                 Auth.login({
-                    username:       data.username,
-                    full_name:      data.full_name,
-                    assigned_roles: data.assigned_roles,
+                    username:       payload.username,
+                    full_name:      payload.full_name,
+                    assigned_roles: payload.assigned_roles,
+                    token:          payload.access_token ?? payload.token ?? null,
                 });
 
                 if (shell) shell.classList.remove('app-shell--auth');
