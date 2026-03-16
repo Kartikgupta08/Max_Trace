@@ -1,16 +1,10 @@
 /**
  * sidebar.js — Dynamic Sidebar Navigation
  *
- * Renders ONLY the routes the current user is permitted to see,
- * derived from their assigned_roles array (not a single role string).
- *
- * Admin users (assigned_roles includes "admin") see every section.
- * All other users see only routes whose roles[] intersect their assigned_roles.
- *
- * Collapse behaviour:
- *   - Collapsed state stored in localStorage so it persists across page loads.
- *   - Collapsed: sidebar shrinks to icon-only (48px wide), labels hidden.
- *   - Expanded:  sidebar at full width with labels visible.
+ * Fix: The brand logo now always shows the MV blue tile.
+ * The <img> was being filtered with brightness(0) invert(1) which made
+ * the actual logo invisible against the dark sidebar background.
+ * Replaced with a clean inline tile that matches the login page fallback.
  */
 
 import Auth from '../core/auth.js';
@@ -19,10 +13,6 @@ import { getRoutesBySection } from '../routes.js';
 const COLLAPSE_KEY = 'mt_sidebar_collapsed';
 
 const Sidebar = {
-    /**
-     * Render the full sidebar HTML.
-     * @returns {string}
-     */
     render() {
         const user = Auth.getUser();
         if (!user) return '';
@@ -30,7 +20,6 @@ const Sidebar = {
         const assignedRoles = Auth.getRoles();
         const sections      = getRoutesBySection(assignedRoles);
 
-        // Build nav links
         let navHtml = '';
         sections.forEach((routes, sectionName) => {
             navHtml += `<div class="sidebar__section-title sidebar__text-fade">${_escapeHtml(sectionName)}</div>`;
@@ -43,37 +32,35 @@ const Sidebar = {
             });
         });
 
-        // Avatar initials
         const displayName = user.full_name || user.username || 'User';
-        const initials = displayName
-            .split(' ')
-            .map(n => n[0])
-            .join('')
-            .toUpperCase()
-            .slice(0, 2);
-
-        const roleLabel = Auth.isAdmin()
+        const initials    = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        const roleLabel   = Auth.isAdmin()
             ? 'Admin'
             : assignedRoles.slice(0, 2).join(', ') + (assignedRoles.length > 2 ? '…' : '');
 
         return `
-            <!-- Brand / Logo -->
+            <!-- Brand -->
             <div class="sidebar__brand">
+                <!--
+                    FIX: Always show the MV tile instead of the <img>.
+                    The image was filtered with brightness(0) invert(1) which
+                    made it invisible. The tile matches the login page fallback.
+                -->
                 <div class="sidebar__brand-logo">
-                    <img src="/Assets/maxvolt-logo.png.png" alt="" class="sidebar__brand-img"
-                         onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
-                    <span class="sidebar__brand-fb" style="display:none;">MV</span>
+                    <span class="sidebar__brand-fb">MV</span>
                 </div>
-                <!-- Text wrapped separately so collapse button stays outside -->
+
                 <div class="sidebar__brand-text sidebar__text-fade">
                     <div class="sidebar__brand-name">MaxTrace</div>
                     <span class="sidebar__brand-sub">MaxVolt Energy Industries</span>
                 </div>
-                <!-- Collapse button is NOT inside sidebar__text-fade so it stays visible -->
-                <button class="sidebar__collapse-btn" id="btn-sidebar-collapse" title="Toggle sidebar">
-                    <span class="material-symbols-outlined sidebar__collapse-icon">chevron_left</span>
-                </button>
             </div>
+
+            <!-- Collapse button -->
+            <button class="sidebar__collapse-btn" id="btn-sidebar-collapse"
+                    title="Collapse sidebar" aria-label="Collapse sidebar">
+                <span class="material-symbols-outlined sidebar__collapse-icon">chevron_left</span>
+            </button>
 
             <!-- Nav -->
             <nav class="sidebar__nav" id="sidebar-nav">
@@ -95,9 +82,6 @@ const Sidebar = {
             </div>`;
     },
 
-    /**
-     * Bind sidebar event listeners (logout + collapse).
-     */
     init() {
         // ── Logout ────────────────────────────────────────────────
         const logoutBtn = document.getElementById('btn-logout');
@@ -115,21 +99,17 @@ const Sidebar = {
 
         if (!collapseBtn || !sidebar || !shell) return;
 
-        // Restore saved state
         const isCollapsed = localStorage.getItem(COLLAPSE_KEY) === 'true';
-        if (isCollapsed) _applyCollapsed(sidebar, shell, true);
+        if (isCollapsed) _applyCollapsed(sidebar, shell, collapseBtn, true);
 
         collapseBtn.addEventListener('click', () => {
             const nowCollapsed = sidebar.classList.toggle('sidebar--collapsed');
             shell.classList.toggle('app-shell--sidebar-collapsed', nowCollapsed);
             localStorage.setItem(COLLAPSE_KEY, nowCollapsed);
+            _updateChevron(collapseBtn, nowCollapsed);
         });
     },
 
-    /**
-     * Highlight the active nav link.
-     * @param {string} hash
-     */
     setActive(hash) {
         document.querySelectorAll('.sidebar__link').forEach(link => {
             link.classList.toggle('sidebar__link--active', link.dataset.route === hash);
@@ -137,10 +117,17 @@ const Sidebar = {
     },
 };
 
-/** Apply collapsed state without animation (on initial load). */
-function _applyCollapsed(sidebar, shell, collapsed) {
+function _applyCollapsed(sidebar, shell, btn, collapsed) {
     sidebar.classList.toggle('sidebar--collapsed', collapsed);
     shell.classList.toggle('app-shell--sidebar-collapsed', collapsed);
+    _updateChevron(btn, collapsed);
+}
+
+function _updateChevron(btn, isCollapsed) {
+    const icon = btn.querySelector('.sidebar__collapse-icon');
+    if (icon) icon.textContent = isCollapsed ? 'chevron_right' : 'chevron_left';
+    btn.title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    btn.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
 }
 
 function _escapeHtml(str) {
