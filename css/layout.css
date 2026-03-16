@@ -40,29 +40,48 @@
     overflow: hidden;
 }
 
-/* ── Brand logo tile (MV) ───────────────────────────────────── */
+/* ── Brand logo container ───────────────────────────────────── */
 .sidebar__brand-logo {
-    width: 34px;
-    height: 34px;
-    background: var(--color-primary);
+    width: 36px;
+    height: 36px;
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(27,58,92,0.35);
+    overflow: hidden;
+    /* No background — image fills the space */
 }
 
-/* FIX: sidebar__brand-fb is now always shown (no display:none).
-   The <img> has been removed from sidebar.js entirely.
-   The brightness(0) invert(1) filter that was making the image
-   invisible has also been removed. */
+/* ── Actual logo image ──────────────────────────────────────────
+   FIX: filter:invert(1) makes the dark logo white on the dark sidebar.
+   This is the correct approach for a dark-on-transparent logo:
+     - invert(1) alone: dark → white, transparent stays transparent  ✓
+     - brightness(0) invert(1): ALL pixels → black first, then white  ✗
+       (destroys detail and can make the whole tile a solid white block)
+──────────────────────────────────────────────────────────────── */
+.sidebar__brand-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    filter: invert(1);         /* dark logo → white on dark sidebar */
+    opacity: 0.92;             /* slight softening so it's not glaring */
+}
+
+/* Fallback tile shown if image fails to load (onerror in sidebar.js) */
 .sidebar__brand-fb {
+    display: none;             /* hidden by default; shown via onerror */
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-primary);
+    border-radius: 8px;
     color: #fff;
     font-weight: 800;
     font-size: 13px;
     letter-spacing: -0.5px;
-    display: flex;     /* always visible */
 }
 
 /* Brand text wrapper */
@@ -205,8 +224,8 @@
 .sidebar__logout-btn:hover { color: var(--color-error); }
 
 /* ── Collapse button ─────────────────────────────────────────────────────────
-   Expanded state: in the header row at right:8px
-   Collapsed state: moves BELOW the brand row, centred — logo never covered
+   Expanded: in header row, right:8px
+   Collapsed: drops below brand row so logo is never covered
 ──────────────────────────────────────────────────────────────────────────── */
 .sidebar__collapse-btn {
     position: absolute;
@@ -267,13 +286,12 @@
 
 .sidebar__text-fade { transition: opacity var(--transition-fast); }
 
-/* Logo centred in the 58px strip */
 .sidebar--collapsed .sidebar__brand {
     padding: 0;
     justify-content: center;
 }
 
-/* Button drops below brand row — logo never covered */
+/* Button drops below brand row when collapsed — logo never covered */
 .sidebar--collapsed .sidebar__collapse-btn {
     top: calc(var(--header-height, 56px) + 8px);
     right: auto;
@@ -289,7 +307,7 @@
     transform: translateX(-50%) scale(0.96);
 }
 
-/* Push nav icons down so they clear the repositioned button */
+/* Push nav icons below the repositioned button */
 .sidebar--collapsed .sidebar__nav {
     padding-top: 48px;
 }

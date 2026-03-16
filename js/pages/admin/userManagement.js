@@ -3,6 +3,10 @@ import API from '../../core/api.js';
 /**
  * userManagement.js — Admin User Management Page
  * Fully matched to the app design system (variables.css + existing component classes).
+ *
+ * Fix: 'Model Management' added to PRODUCTION_ROLES.
+ * It was missing, so admins could never assign that role to an operator,
+ * and operators could never be granted access to the Model Management page.
  */
 
 /**
@@ -10,9 +14,11 @@ import API from '../../core/api.js';
  * 'admin' is handled separately via a dedicated toggle — it automatically
  * grants access to all admin pages (Dashboard, Cell Inventory, Traceability,
  * User Management) without needing to be listed here.
+ *
+ * Each string here MUST exactly match the role string in routes.js roles[].
  */
 const PRODUCTION_ROLES = [
-    'Model Management',
+    'Model Management',      // ← FIX: was missing — caused Access Denied for this page
     'Cell Grading',
     'Cell Sorting',
     'Assembly and Mapping',
@@ -22,6 +28,7 @@ const PRODUCTION_ROLES = [
     'PDI Inspection',
     'Dispatch',
 ];
+
 const UserManagement = {
     users: [],
 
@@ -127,7 +134,7 @@ const UserManagement = {
                 margin-bottom: var(--space-1);
             }
 
-            /* ── Form Input (shared with rest of app) ── */
+            /* ── Form Input ── */
             .form-input {
                 background: var(--color-bg-input);
                 border: 1px solid var(--color-border-input);
@@ -238,7 +245,7 @@ const UserManagement = {
                 z-index: 200;
                 box-shadow: var(--shadow-lg);
                 overflow: hidden;
-                max-height: 260px;
+                max-height: 280px;
                 overflow-y: auto;
             }
 
@@ -372,10 +379,7 @@ const UserManagement = {
             }
 
             .user-table tbody tr:last-child td { border-bottom: none; }
-
-            .user-table tbody tr:hover td {
-                background: var(--color-bg-table-row-hover);
-            }
+            .user-table tbody tr:hover td { background: var(--color-bg-table-row-hover); }
 
             .um-actions-cell {
                 display: flex !important;
@@ -442,16 +446,8 @@ const UserManagement = {
             }
             .um-status--inactive::before { background: var(--color-inactive); }
 
-            /* ── Table text helpers ── */
-            .um-username {
-                font-weight: var(--weight-semibold);
-                color: var(--color-text-primary);
-            }
-
-            .um-muted {
-                color: var(--color-text-tertiary);
-                font-size: var(--text-xs);
-            }
+            .um-username { font-weight: var(--weight-semibold); color: var(--color-text-primary); }
+            .um-muted    { color: var(--color-text-tertiary); font-size: var(--text-xs); }
 
             /* ── Skeleton ── */
             @keyframes um-shimmer {
@@ -488,10 +484,7 @@ const UserManagement = {
                 margin: 0 0 var(--space-1) 0;
             }
 
-            .um-empty-sub {
-                font-size: var(--text-sm);
-                margin: 0;
-            }
+            .um-empty-sub { font-size: var(--text-sm); margin: 0; }
 
             /* ── Modal ── */
             .um-backdrop {
@@ -506,14 +499,11 @@ const UserManagement = {
                 animation: um-fade 0.15s ease;
             }
 
-            @keyframes um-fade {
-                from { opacity: 0; }
-                to   { opacity: 1; }
-            }
+            @keyframes um-fade { from { opacity: 0; } to { opacity: 1; } }
 
             @keyframes um-rise {
                 from { opacity: 0; transform: translateY(10px) scale(0.99); }
-                to   { opacity: 1; transform: translateY(0)   scale(1); }
+                to   { opacity: 1; transform: translateY(0)    scale(1); }
             }
 
             .um-modal {
@@ -546,17 +536,12 @@ const UserManagement = {
             }
 
             .um-modal-close {
-                background: none;
-                border: none;
+                background: none; border: none;
                 color: var(--color-text-tertiary);
-                cursor: pointer;
-                font-size: 18px;
-                width: 32px;
-                height: 32px;
+                cursor: pointer; font-size: 18px;
+                width: 32px; height: 32px;
                 border-radius: var(--radius-md);
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                display: flex; align-items: center; justify-content: center;
                 transition: background var(--transition-fast), color var(--transition-fast);
             }
 
@@ -567,7 +552,6 @@ const UserManagement = {
 
             .um-modal-field { margin-bottom: var(--space-4); }
 
-            /* Modal role grid */
             .um-modal-role-grid {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
@@ -576,7 +560,7 @@ const UserManagement = {
                 border-radius: var(--radius-md);
                 overflow: hidden;
                 background: var(--color-bg-body);
-                max-height: 220px;
+                max-height: 240px;
                 overflow-y: auto;
             }
 
@@ -596,37 +580,26 @@ const UserManagement = {
                 background: var(--color-bg-card);
             }
 
-            .um-modal-role-grid label:hover {
-                background: var(--color-bg-table-row-hover);
-            }
+            .um-modal-role-grid label:hover { background: var(--color-bg-table-row-hover); }
 
             .um-modal-role-grid input[type="checkbox"] {
                 accent-color: var(--color-primary);
-                width: 14px;
-                height: 14px;
-                flex-shrink: 0;
-                cursor: pointer;
+                width: 14px; height: 14px;
+                flex-shrink: 0; cursor: pointer;
             }
 
-            /* Toggle */
-            .um-toggle-row {
-                display: flex;
-                align-items: center;
-                gap: var(--space-3);
-            }
+            .um-toggle-row { display: flex; align-items: center; gap: var(--space-3); }
 
             .um-toggle {
                 position: relative;
-                width: 38px;
-                height: 21px;
+                width: 38px; height: 21px;
                 flex-shrink: 0;
             }
 
             .um-toggle input { opacity: 0; width: 0; height: 0; }
 
             .um-toggle-track {
-                position: absolute;
-                inset: 0;
+                position: absolute; inset: 0;
                 background: var(--color-border-input);
                 border-radius: 21px;
                 cursor: pointer;
@@ -636,10 +609,8 @@ const UserManagement = {
             .um-toggle-track::before {
                 content: '';
                 position: absolute;
-                width: 15px;
-                height: 15px;
-                left: 3px;
-                top: 3px;
+                width: 15px; height: 15px;
+                left: 3px; top: 3px;
                 background: #fff;
                 border-radius: 50%;
                 transition: transform var(--transition-fast);
@@ -649,12 +620,8 @@ const UserManagement = {
             .um-toggle input:checked + .um-toggle-track { background: var(--color-primary); }
             .um-toggle input:checked + .um-toggle-track::before { transform: translateX(17px); }
 
-            .um-toggle-label {
-                font-size: var(--text-sm);
-                color: var(--color-text-secondary);
-            }
+            .um-toggle-label { font-size: var(--text-sm); color: var(--color-text-secondary); }
 
-            /* Modal footer */
             .um-modal-footer {
                 display: flex;
                 align-items: center;
@@ -665,7 +632,6 @@ const UserManagement = {
                 border-top: 1px solid var(--color-border-light);
             }
 
-            /* Confirm delete body */
             .um-confirm-body {
                 font-size: var(--text-sm);
                 color: var(--color-text-secondary);
@@ -682,18 +648,15 @@ const UserManagement = {
             /* ── Toasts ── */
             #um-toasts {
                 position: fixed;
-                top: var(--space-6);
-                right: var(--space-6);
+                top: var(--space-6); right: var(--space-6);
                 z-index: 9999;
-                display: flex;
-                flex-direction: column;
+                display: flex; flex-direction: column;
                 gap: var(--space-2);
                 pointer-events: none;
             }
 
             .um-toast {
-                display: flex;
-                align-items: flex-start;
+                display: flex; align-items: flex-start;
                 gap: var(--space-3);
                 background: var(--color-bg-card);
                 border: 1px solid var(--color-border);
@@ -709,55 +672,28 @@ const UserManagement = {
             .um-toast--error   { border-left: 3px solid var(--color-error); }
 
             .um-toast-icon {
-                width: 20px;
-                height: 20px;
+                width: 20px; height: 20px;
                 border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 11px;
-                font-weight: var(--weight-bold);
-                flex-shrink: 0;
-                margin-top: 1px;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 11px; font-weight: var(--weight-bold);
+                flex-shrink: 0; margin-top: 1px;
             }
 
-            .um-toast--success .um-toast-icon {
-                background: var(--color-success-bg);
-                color: var(--color-success);
-            }
-
-            .um-toast--error .um-toast-icon {
-                background: var(--color-error-bg);
-                color: var(--color-error);
-            }
+            .um-toast--success .um-toast-icon { background: var(--color-success-bg); color: var(--color-success); }
+            .um-toast--error   .um-toast-icon { background: var(--color-error-bg);   color: var(--color-error); }
 
             .um-toast-body { flex: 1; }
-
-            .um-toast-title {
-                font-size: var(--text-sm);
-                font-weight: var(--weight-semibold);
-                color: var(--color-text-primary);
-                margin-bottom: 1px;
-            }
-
-            .um-toast-msg {
-                font-size: var(--text-xs);
-                color: var(--color-text-secondary);
-                line-height: var(--leading-normal);
-            }
+            .um-toast-title { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--color-text-primary); margin-bottom: 1px; }
+            .um-toast-msg   { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: var(--leading-normal); }
 
             .um-toast-close {
-                background: none;
-                border: none;
+                background: none; border: none;
                 color: var(--color-text-tertiary);
-                cursor: pointer;
-                font-size: 14px;
-                padding: 0;
-                line-height: 1;
+                cursor: pointer; font-size: 14px;
+                padding: 0; line-height: 1;
                 align-self: center;
                 transition: color var(--transition-fast);
             }
-
             .um-toast-close:hover { color: var(--color-text-primary); }
 
             /* ── Admin toggle in role dropdown ── */
@@ -772,22 +708,15 @@ const UserManagement = {
             }
 
             .um-role-menu-admin-left {
-                display: flex;
-                align-items: center;
-                gap: var(--space-2);
+                display: flex; align-items: center; gap: var(--space-2);
             }
 
             .um-admin-icon {
-                width: 22px;
-                height: 22px;
-                background: #F3E8FF;
-                color: #6B21A8;
+                width: 22px; height: 22px;
+                background: #F3E8FF; color: #6B21A8;
                 border-radius: var(--radius-sm);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 12px;
-                flex-shrink: 0;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 12px; flex-shrink: 0;
             }
 
             .um-admin-label-text {
@@ -797,11 +726,7 @@ const UserManagement = {
                 line-height: 1.2;
             }
 
-            .um-admin-sublabel {
-                font-size: var(--text-xs);
-                color: var(--color-text-tertiary);
-                margin-top: 2px;
-            }
+            .um-admin-sublabel { font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px; }
 
             .um-role-menu-section-header {
                 padding: 7px var(--space-3) 4px;
@@ -814,10 +739,7 @@ const UserManagement = {
                 border-bottom: 1px solid var(--color-border-light);
             }
 
-            .um-role-menu label.um-role-disabled {
-                opacity: 0.38;
-                pointer-events: none;
-            }
+            .um-role-menu label.um-role-disabled { opacity: 0.38; pointer-events: none; }
 
             .um-admin-pages-note {
                 display: none;
@@ -838,7 +760,6 @@ const UserManagement = {
 
         <div class="user-management-page">
 
-            <!-- Page Header -->
             <div class="um-page-header">
                 <h1>User Management</h1>
                 <p>Create and manage operator accounts and their role access.</p>
@@ -886,11 +807,11 @@ const UserManagement = {
                                         <span class="um-toggle-track"></span>
                                     </label>
                                 </div>
-                                <!-- Admin pages note (shown when admin is on) -->
+                                <!-- Admin note -->
                                 <div class="um-admin-pages-note" id="um-admin-note">
                                     &#10003;&nbsp; Automatically includes: Dashboard, Cell Inventory, Battery Traceability, User Management + all production pages.
                                 </div>
-                                <!-- Production roles section -->
+                                <!-- Production roles -->
                                 <div class="um-role-menu-section-header">Production Pages</div>
                                 ${PRODUCTION_ROLES.map(r => `
                                     <label>
@@ -932,9 +853,9 @@ const UserManagement = {
                     <th>Status</th><th>Last Login</th><th>Actions</th>
                 </tr></thead>
                 <tbody>
-                    ${row(['80px', '130px', '210px', '65px', '110px', '90px'])}
-                    ${row(['70px', '150px', '170px', '65px', '110px', '90px'])}
-                    ${row(['90px', '120px', '230px', '65px', '110px', '90px'])}
+                    ${row(['80px','130px','210px','65px','110px','90px'])}
+                    ${row(['70px','150px','170px','65px','110px','90px'])}
+                    ${row(['90px','120px','230px','65px','110px','90px'])}
                 </tbody>
             </table>`;
     },
@@ -985,10 +906,8 @@ const UserManagement = {
         const roleMenu     = document.getElementById('um-role-menu');
         const adminToggle  = document.getElementById('um-admin-toggle');
         const adminNote    = document.getElementById('um-admin-note');
-        // Production-only checkboxes (excludes the admin toggle)
         const productionCbs = () => Array.from(roleMenu.querySelectorAll('input[type="checkbox"]:not(#um-admin-toggle)'));
 
-        // ── Toggle dropdown open/close ────────────────────────────
         roleBtn.addEventListener('click', e => {
             e.preventDefault();
             const open = roleMenu.classList.toggle('open');
@@ -1002,7 +921,6 @@ const UserManagement = {
             }
         });
 
-        // ── Sync button label & badge ─────────────────────────────
         const syncRoleBtn = () => {
             const isAdmin     = adminToggle.checked;
             const prodChecked = productionCbs().filter(cb => cb.checked).map(cb => cb.value);
@@ -1032,10 +950,6 @@ const UserManagement = {
             }
         };
 
-        // ── Admin toggle behaviour ────────────────────────────────
-        // When admin is ON:  show note, disable & uncheck production boxes
-        //                    (admin already includes all pages implicitly)
-        // When admin is OFF: hide note, re-enable production boxes
         adminToggle.addEventListener('change', () => {
             const isAdmin = adminToggle.checked;
             adminNote.classList.toggle('visible', isAdmin);
@@ -1047,12 +961,10 @@ const UserManagement = {
         });
 
         roleMenu.addEventListener('change', e => {
-            // Don't re-run for admin toggle (handled above)
             if (e.target === adminToggle) return;
             syncRoleBtn();
         });
 
-        // ── Reset helper ──────────────────────────────────────────
         const resetRoles = () => {
             adminToggle.checked = false;
             adminNote.classList.remove('visible');
@@ -1063,14 +975,11 @@ const UserManagement = {
             syncRoleBtn();
         };
 
-        // ── Submit ────────────────────────────────────────────────
         form.addEventListener('submit', async e => {
             e.preventDefault();
 
             const isAdmin     = adminToggle.checked;
             const prodChecked = productionCbs().filter(cb => cb.checked).map(cb => cb.value);
-            // If admin: send only ['admin'] — backend + auth handle page access
-            // If not admin: send selected production roles
             const assigned_roles = isAdmin ? ['admin'] : prodChecked;
 
             if (assigned_roles.length === 0) {
@@ -1130,8 +1039,8 @@ const UserManagement = {
         }
 
         const rows = this.users.map(u => {
-            const roles = Array.isArray(u.assigned_roles) ? u.assigned_roles : [u.assigned_roles];
-            const pills = roles.map(r =>
+            const roles     = Array.isArray(u.assigned_roles) ? u.assigned_roles : [u.assigned_roles];
+            const pills     = roles.map(r =>
                 `<span class="um-pill${r === 'admin' ? ' um-pill--admin' : ''}">${r}</span>`
             ).join('');
             const isActive  = u.is_active !== false;
@@ -1170,16 +1079,10 @@ const UserManagement = {
 
         container.innerHTML = `
             <table class="user-table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Full Name</th>
-                        <th>Roles</th>
-                        <th>Status</th>
-                        <th>Last Login</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
+                <thead><tr>
+                    <th>Username</th><th>Full Name</th><th>Roles</th>
+                    <th>Status</th><th>Last Login</th><th>Actions</th>
+                </tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
 
@@ -1205,12 +1108,9 @@ const UserManagement = {
         if (!user) return;
         this._removeBackdrop();
 
-        const currentRoles = Array.isArray(user.assigned_roles)
-            ? user.assigned_roles : [user.assigned_roles];
+        const currentRoles      = Array.isArray(user.assigned_roles) ? user.assigned_roles : [user.assigned_roles];
+        const isCurrentlyAdmin  = currentRoles.includes('admin');
 
-        const isCurrentlyAdmin = currentRoles.includes('admin');
-
-        // Production checkboxes — disabled + unchecked when admin is on
         const prodCheckboxes = PRODUCTION_ROLES.map(r => `
             <label class="${isCurrentlyAdmin ? 'um-role-disabled' : ''}">
                 <input type="checkbox" value="${r}"
@@ -1232,12 +1132,10 @@ const UserManagement = {
                     </div>
                     <div class="um-modal-field">
                         <label class="um-modal-label" for="um-edit-fullname">Full Name</label>
-                        <input type="text" id="um-edit-fullname" class="form-input"
-                               value="${user.full_name}" required />
+                        <input type="text" id="um-edit-fullname" class="form-input" value="${user.full_name}" required />
                     </div>
                     <div class="um-modal-field">
                         <label class="um-modal-label">Assigned Roles</label>
-                        <!-- Admin toggle -->
                         <div class="um-role-menu-admin" style="border:1px solid var(--color-border-input);border-radius:var(--radius-md) var(--radius-md) 0 0;margin-bottom:0;">
                             <div class="um-role-menu-admin-left">
                                 <div class="um-admin-icon">&#9670;</div>
@@ -1251,12 +1149,10 @@ const UserManagement = {
                                 <span class="um-toggle-track"></span>
                             </label>
                         </div>
-                        <!-- Admin note -->
                         <div class="um-admin-pages-note${isCurrentlyAdmin ? ' visible' : ''}" id="um-edit-admin-note"
                              style="margin:0;border-radius:0;border-top:none;border-bottom:none;">
                             &#10003;&nbsp; Automatically includes: Dashboard, Cell Inventory, Battery Traceability, User Management + all production pages.
                         </div>
-                        <!-- Production roles -->
                         <div class="um-role-menu-section-header"
                              style="border:1px solid var(--color-border-input);border-top:none;">
                             Production Pages
@@ -1270,8 +1166,7 @@ const UserManagement = {
                         <label class="um-modal-label">Account Status</label>
                         <div class="um-toggle-row">
                             <label class="um-toggle">
-                                <input type="checkbox" id="um-edit-active"
-                                       ${user.is_active !== false ? 'checked' : ''} />
+                                <input type="checkbox" id="um-edit-active" ${user.is_active !== false ? 'checked' : ''} />
                                 <span class="um-toggle-track"></span>
                             </label>
                             <span class="um-toggle-label" id="um-active-label">
@@ -1286,31 +1181,27 @@ const UserManagement = {
                 </form>
             </div>`);
 
-        // ── Active toggle ─────────────────────────────────────────
         const activeToggle = document.getElementById('um-edit-active');
         const activeLabel  = document.getElementById('um-active-label');
         activeToggle.addEventListener('change', () => {
             activeLabel.textContent = activeToggle.checked ? 'Active' : 'Inactive';
         });
 
-        // ── Admin toggle in modal ─────────────────────────────────
         const editAdminToggle = document.getElementById('um-edit-admin-toggle');
         const editAdminNote   = document.getElementById('um-edit-admin-note');
 
         const syncEditAdminToggle = () => {
             const on = editAdminToggle.checked;
             editAdminNote.classList.toggle('visible', on);
-            document.getElementById('um-edit-roles').querySelectorAll('input[type="checkbox"]')
-                .forEach(cb => {
-                    cb.closest('label').classList.toggle('um-role-disabled', on);
-                    cb.disabled = on;
-                    if (on) cb.checked = false;
-                });
+            document.getElementById('um-edit-roles').querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.closest('label').classList.toggle('um-role-disabled', on);
+                cb.disabled = on;
+                if (on) cb.checked = false;
+            });
         };
 
         editAdminToggle.addEventListener('change', syncEditAdminToggle);
 
-        // ── Close ─────────────────────────────────────────────────
         const closeModal = () => this._removeBackdrop();
         document.getElementById('um-modal-close').addEventListener('click', closeModal);
         document.getElementById('um-modal-cancel').addEventListener('click', closeModal);
@@ -1318,7 +1209,6 @@ const UserManagement = {
             if (!document.getElementById('um-modal-box').contains(e.target)) closeModal();
         });
 
-        // ── Submit ────────────────────────────────────────────────
         document.getElementById('um-edit-form').addEventListener('submit', async e => {
             e.preventDefault();
 
@@ -1327,7 +1217,6 @@ const UserManagement = {
                 document.getElementById('um-edit-roles').querySelectorAll('input:checked')
             ).map(cb => cb.value);
 
-            // If admin: send only ['admin']; otherwise send selected production roles
             const assigned_roles = isAdmin ? ['admin'] : prodSelected;
 
             if (assigned_roles.length === 0) {

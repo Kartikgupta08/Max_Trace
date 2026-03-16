@@ -1,10 +1,12 @@
 /**
  * sidebar.js — Dynamic Sidebar Navigation
  *
- * Fix: The brand logo now always shows the MV blue tile.
- * The <img> was being filtered with brightness(0) invert(1) which made
- * the actual logo invisible against the dark sidebar background.
- * Replaced with a clean inline tile that matches the login page fallback.
+ * Fix: Logo now uses the actual maxvolt-logo.png.png image.
+ * filter: invert(1) makes the dark logo white on the dark sidebar
+ * without destroying transparency (brightness(0) was the culprit before —
+ * it collapsed everything to black THEN inverted, causing a pure white
+ * rectangle that was indistinguishable from the sidebar on some themes).
+ * The MV tile is kept as a CSS fallback if the image fails to load.
  */
 
 import Auth from '../core/auth.js';
@@ -41,13 +43,20 @@ const Sidebar = {
         return `
             <!-- Brand -->
             <div class="sidebar__brand">
-                <!--
-                    FIX: Always show the MV tile instead of the <img>.
-                    The image was filtered with brightness(0) invert(1) which
-                    made it invisible. The tile matches the login page fallback.
-                -->
                 <div class="sidebar__brand-logo">
-                    <span class="sidebar__brand-fb">MV</span>
+                    <!--
+                        FIX: filter:invert(1) makes the dark logo white on the dark sidebar.
+                        This preserves transparency unlike brightness(0) invert(1) which
+                        first collapses all pixels to black (losing all detail).
+                        onerror falls back to the MV text tile.
+                    -->
+                    <img
+                        src="/Assets/maxvolt-logo.png.png"
+                        alt="MaxVolt"
+                        class="sidebar__brand-img"
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+                    />
+                    <span class="sidebar__brand-fb" style="display:none;">${initials.slice(0,2) || 'MV'}</span>
                 </div>
 
                 <div class="sidebar__brand-text sidebar__text-fade">

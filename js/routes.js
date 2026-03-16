@@ -10,6 +10,9 @@
  * Auth.isAuthorized() does an array overlap check, so listing 'admin'
  * here means an admin user (whose assigned_roles includes 'admin') will
  * always pass the check — even without the isAdmin() bypass.
+ *
+ * Fix: Model Management route now includes 'Model Management' as an allowed role
+ * (was previously ['admin'] only, blocking any operator assigned that role).
  */
 
 const ROUTES = [
@@ -35,7 +38,7 @@ const ROUTES = [
     {
         path:    '#/production/model-management',
         title:   'Model Management',
-        roles:   ['admin'],
+        roles:   ['admin', 'Model Management'],   // ← FIX: added 'Model Management' role
         section: 'Production',
         icon:    'battery_charging_full',
         loader:  () => import('./pages/production/modelManagement.js'),
@@ -142,21 +145,10 @@ const ROUTES = [
 
 // ─── Lookup helpers ───────────────────────────────────────────────────────────
 
-/**
- * Find a route by its hash path.
- * @param {string} hash
- * @returns {Object|undefined}
- */
 export function findRoute(hash) {
     return ROUTES.find(r => r.path === hash);
 }
 
-/**
- * Get all sidebar-visible routes for a user's assigned_roles array.
- * Admins get everything. Others only get routes where their roles overlap.
- * @param {string[]} assignedRoles
- * @returns {Object[]}
- */
 export function getNavigableRoutes(assignedRoles) {
     const isAdmin = assignedRoles.includes('admin');
     return ROUTES.filter(r => {
@@ -167,11 +159,6 @@ export function getNavigableRoutes(assignedRoles) {
     });
 }
 
-/**
- * Group navigable routes by section.
- * @param {string[]} assignedRoles
- * @returns {Map<string, Object[]>}
- */
 export function getRoutesBySection(assignedRoles) {
     const routes   = getNavigableRoutes(assignedRoles);
     const sections = new Map();
