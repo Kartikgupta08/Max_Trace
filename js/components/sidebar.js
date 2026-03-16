@@ -59,12 +59,17 @@ const Sidebar = {
         return `
             <!-- Brand / Logo -->
             <div class="sidebar__brand">
-                <div class="sidebar__brand-logo">MT</div>
-                <div class="sidebar__text-fade">
-                    <div class="sidebar__brand-name">MaxTrace</div>
-                    <span class="sidebar__brand-sub">Battery Traceability</span>
+                <div class="sidebar__brand-logo">
+                    <img src="/Assets/maxvolt-logo.png.png" alt="" class="sidebar__brand-img"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+                    <span class="sidebar__brand-fb" style="display:none;">MV</span>
                 </div>
-                <!-- Collapse toggle button -->
+                <!-- Text wrapped separately so collapse button stays outside -->
+                <div class="sidebar__brand-text sidebar__text-fade">
+                    <div class="sidebar__brand-name">MaxTrace</div>
+                    <span class="sidebar__brand-sub">MaxVolt Energy Industries</span>
+                </div>
+                <!-- Collapse button is NOT inside sidebar__text-fade so it stays visible -->
                 <button class="sidebar__collapse-btn" id="btn-sidebar-collapse" title="Toggle sidebar">
                     <span class="material-symbols-outlined sidebar__collapse-icon">chevron_left</span>
                 </button>
