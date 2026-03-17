@@ -506,7 +506,7 @@ const Login = {
 
                 <div class="login-logo-wrap">
                     <img
-                        src="/Assets/maxvolt-logo.png.png"
+                        src="Assets/maxvolt-logo.png.png"
                         alt="MaxVolt Energy"
                         onerror="this.classList.add('errored')"
                     />
@@ -542,7 +542,7 @@ const Login = {
 
                     <div class="login-brand">
                         <img
-                            src="/Assets/maxvolt-logo.png.png"
+                            src="Assets/maxvolt-logo.png.png"
                             alt="MaxVolt Energy"
                             id="login-brand-img"
                             style="height:64px;width:auto;object-fit:contain;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;"
