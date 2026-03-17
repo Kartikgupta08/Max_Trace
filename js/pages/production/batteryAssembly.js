@@ -121,7 +121,7 @@ const BatteryAssembly = {
                             <div style="margin-bottom:var(--space-4);">
                                 <div style="font-size:11px;font-weight:700;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:var(--space-2);display:flex;align-items:center;gap:6px;">
                                     <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1565C0;flex-shrink:0;"></span>
-                                    Cell IR (mΩ)
+                                    Cell IR <span style="text-transform:none;">(mΩ)</span>
                                 </div>
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);">
                                     <div>
@@ -161,7 +161,7 @@ const BatteryAssembly = {
                             <div style="margin-bottom:var(--space-4);">
                                 <div style="font-size:11px;font-weight:700;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:var(--space-2);display:flex;align-items:center;gap:6px;">
                                     <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#B8860B;flex-shrink:0;"></span>
-                                    Cell Capacity (mAh)
+                                    Cell Capacity <span style="text-transform:none;">(mAh)</span>
                                 </div>
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);">
                                     <div>

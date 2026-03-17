@@ -380,8 +380,8 @@ const CellInventory = {
                         <th>Grade Result</th>
                         <th class="ci-th-num">Capacity</th>
                         <th class="ci-th-num">Voltage</th>
-                        <th class="ci-th-num">IR (mΩ)</th>
-                        <th class="ci-th-num">OCV (mV)</th>
+                        <th class="ci-th-num">IR <span style="text-transform:none;">(mΩ)</span></th>
+                        <th class="ci-th-num">OCV <span style="text-transform:none;">(mV)</span></th>
                         <th>Registered At</th>
                         <th>Last Tested</th>
                     </tr></thead>
