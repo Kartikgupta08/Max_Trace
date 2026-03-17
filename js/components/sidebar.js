@@ -42,7 +42,7 @@ const Sidebar = {
              <!-- Brand / Logo -->
             <div class="sidebar__brand">
                 <div class="sidebar__brand-logo">
-                    <img src="/Assets/maxvolt-logo.png.png" alt="" class="sidebar__brand-img"
+                    <img src="Assets/maxvolt-logo.png.png" alt="" class="sidebar__brand-img"
                          onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
                     <span class="sidebar__brand-fb" style="display:none;">MV</span>
                 </div>
