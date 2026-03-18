@@ -1,14 +1,14 @@
 /**
  * dashboard.js — Admin Dashboard
  *
- * Fix: Today's Production Output pagination now works on the FIRST load.
+ * Today's Production Output uses CLIENT-SIDE pagination.
+ * All battery rows are already in the dashboard payload — we simply
+ * slice and re-render on page change. No extra API endpoint needed,
+ * so the /admin/dashboard/today-output 404 is completely irrelevant.
  *
- * Root cause: _renderOutputPage was called with pagData=null on page 1,
- * so totalPages defaulted to 1 and the pagination bar never appeared.
- *
- * Solution: The backend now includes today_output_total in the dashboard
- * payload (one extra COUNT query — no extra round-trip). The frontend
- * builds a pagData object from it so page 1 shows the correct bar.
+ * Backend change required: remove .limit(15) from today_output_query
+ * in fetch_dashboard_stats() so ALL of today's batteries are returned.
+ * The frontend handles the 15-per-page display entirely.
  */
 
 import API from '../../core/api.js';
@@ -18,9 +18,12 @@ let _API_BASE = 'http://localhost:8000';
 try {
     const cfg = await import('../../core/config.js');
     if (cfg?.API_BASE) _API_BASE = cfg.API_BASE;
-} catch { /* config.js not yet created — fallback stays active */ }
+} catch { /* fallback stays active */ }
 
 const PAGE_SIZE = 15;
+
+// Module-level store for all batteries — persists across page changes
+let _allBatteries = [];
 
 /* ─────────────────────────────────────────────────────────────
    Badge renderer
@@ -129,7 +132,6 @@ const AdminDashboard = {
             .db-stage-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
             .db-stage-count { font-size: 15px; font-weight: 700; color: var(--color-text-primary); min-width: 32px; text-align: right; }
 
-            /* Pagination strip below the output table */
             .db-pag { padding: 12px 20px; border-top: 1px solid var(--color-border-light); }
 
             .db-mono { font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
@@ -200,6 +202,7 @@ const AdminDashboard = {
     },
 
     async init() {
+        _allBatteries = []; // reset on each page load
         await _loadData();
         _setupWS();
         return () => {
@@ -252,7 +255,7 @@ function _setupWS() {
             try {
                 const res = JSON.parse(e.data);
                 // WS only refreshes KPIs / activity / stages.
-                // Output table is NOT refreshed — user may be mid-pagination.
+                // Output table uses client-side pagination — not refreshed on WS tick.
                 if (res?.success && res.data) _renderLive(res.data);
             } catch (err) { console.warn('[Dashboard WS] parse error', err); }
         };
@@ -279,16 +282,11 @@ function _render(data) {
     _renderActivity(data.recent_activity);
     _renderStages(data.stage_breakdown);
 
-    // ── FIX: build pagData from today_output_total so the pagination
-    //    bar is shown immediately on page 1 without an extra API call.
-    const totalItems = data.today_output_total ?? (data.today_output?.length ?? 0);
-    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    // Store ALL batteries from the payload for client-side pagination.
+    // No extra API calls needed — page changes just slice this array.
+    _allBatteries = data.today_output || [];
 
-    const pagData = totalItems > 0
-        ? { total_items: totalItems, total_pages: totalPages, current_page: 1 }
-        : null;
-
-    _renderOutputPage(data.today_output || [], 1, pagData);
+    _renderOutputClientPage(1);
 }
 
 /* ── Live render (WS update) — skips output table ───────── */
@@ -296,6 +294,7 @@ function _renderLive(data) {
     _renderKPIs(data.kpis);
     _renderActivity(data.recent_activity);
     _renderStages(data.stage_breakdown);
+    // Output table not refreshed — user may be on page 5
 }
 
 /* ── KPIs ────────────────────────────────────────────────── */
@@ -349,21 +348,24 @@ function _renderStages(stages) {
     el.innerHTML = `<div class="db-stage-list">${rows}</div>`;
 }
 
-/* ── Today's Output — paginated ──────────────────────────────
-   items   — batteries for this page
-   page    — 1-based current page
-   pagData — { total_items, total_pages } or null
-             On initial load this is built from data.today_output_total.
-             On page changes it comes directly from the API response.
+/* ── Client-side page renderer ───────────────────────────────
+   Slices _allBatteries in-memory — zero extra network calls.
+   Called on initial load and every time a page button is clicked.
 ─────────────────────────────────────────────────────────────── */
-function _renderOutputPage(items, page, pagData) {
+function _renderOutputClientPage(page) {
     const el      = document.getElementById('db-output');
     const countEl = document.getElementById('db-output-count');
     const pagEl   = document.getElementById('db-output-pag');
     if (!el) return;
 
-    const totalItems = pagData?.total_items ?? items.length;
-    const totalPages = pagData?.total_pages ?? 1;
+    const totalItems = _allBatteries.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+    // Clamp page to valid range
+    page = Math.min(Math.max(1, page), totalPages);
+
+    const start    = (page - 1) * PAGE_SIZE;
+    const pageItems = _allBatteries.slice(start, start + PAGE_SIZE);
 
     if (countEl) {
         countEl.textContent = totalItems > 0
@@ -371,14 +373,14 @@ function _renderOutputPage(items, page, pagData) {
             : '';
     }
 
-    if (!items?.length) {
+    if (!pageItems.length) {
         el.innerHTML = `<div class="db-empty">No production output recorded today.</div>`;
         if (pagEl) pagEl.style.display = 'none';
         return;
     }
 
     // ── Table ──────────────────────────────────────────────
-    const rows = items.map(b => `
+    const rows = pageItems.map(b => `
         <tr>
             <td><span class="db-mono">${b.battery_id || '—'}</span></td>
             <td>${b.model || '—'}</td>
@@ -409,21 +411,9 @@ function _renderOutputPage(items, page, pagData) {
             containerId: 'db-output-pag-ctrl',
         });
 
-        Pagination.init('db-output-pag-ctrl', async newPage => {
-            // Skeleton while loading
-            el.innerHTML = _skeletonTable(PAGE_SIZE, ['110px','90px','120px','80px','80px']);
-
-            const res = await API.get('/admin/dashboard/today-output', {
-                page:      newPage,
-                page_size: PAGE_SIZE,
-            });
-
-            if (res?.success && res.data) {
-                _renderOutputPage(res.data.items || [], res.data.current_page, res.data);
-            } else {
-                el.innerHTML = `<div class="db-empty">Failed to load page ${newPage}. Please try again.</div>`;
-            }
-
+        // On page change: just re-slice _allBatteries — no API call
+        Pagination.init('db-output-pag-ctrl', newPage => {
+            _renderOutputClientPage(newPage);
             document.getElementById('db-output')
                 ?.closest('.db-card')
                 ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
