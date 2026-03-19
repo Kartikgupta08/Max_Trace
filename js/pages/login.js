@@ -16,7 +16,7 @@ import Auth from '../core/auth.js';
 import Router from '../core/router.js';
 
 // ── API base — same logic as api.js, kept in sync ──────────────────────────
-const _API_BASE = 'http://localhost:8000';
+const _API_BASE = 'https://maxtraceapi.maxvoltenergy.com';
 
 const Login = {
     render() {

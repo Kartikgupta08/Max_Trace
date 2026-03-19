@@ -20,17 +20,17 @@ import Pagination from '../../components/pagination.js';
    Recommended setup (one-time, keeps api.js + traceability.js in sync):
 
      1. Create  src/core/config.js :
-            export const API_BASE = 'http://localhost:8000';
+            export const API_BASE = 'https://maxtraceapi.maxvoltenergy.com';
 
      2. In api.js replace:
-            const API_BASE = 'http://localhost:8000';
+            const API_BASE = 'https://maxtraceapi.maxvoltenergy.com';
         with:
             import { API_BASE } from './config.js';
 
    Until config.js is created the fallback below keeps this page
    working — no page load errors.
 ───────────────────────────────────────────────────────────── */
-let _API_BASE = 'http://localhost:8000';          // ← safe fallback
+let _API_BASE = 'https://maxtraceapi.maxvoltenergy.com';          // ← safe fallback
 try {
     const cfg = await import('../../core/config.js');
     if (cfg?.API_BASE) _API_BASE = cfg.API_BASE;
