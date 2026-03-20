@@ -31,10 +31,6 @@ import Pagination from '../../components/pagination.js';
    working — no page load errors.
 ───────────────────────────────────────────────────────────── */
 let _API_BASE = 'https://maxtraceapi.maxvoltenergy.com';          // ← safe fallback
-try {
-    const cfg = await import('../../core/config.js');
-    if (cfg?.API_BASE) _API_BASE = cfg.API_BASE;
-} catch { /* config.js not yet created — fallback stays active */ }
 
 /* ─────────────────────────────────────────────────────────────
    Badge renderer
