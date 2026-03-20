@@ -14,7 +14,11 @@
 import API from '../../core/api.js';
 import Pagination from '../../components/pagination.js';
 
-let _API_BASE = 'https://maxtraceapi.maxvoltenergy.com';
+let _API_BASE = 'http://localhost:8000';
+try {
+    const cfg = await import('../../core/config.js');
+    if (cfg?.API_BASE) _API_BASE = cfg.API_BASE;
+} catch { /* fallback stays active */ }
 
 const PAGE_SIZE = 15;
 
@@ -336,7 +340,7 @@ function _renderStages(stages) {
         return `<div class="db-stage-row">
             <span class="db-stage-name">${name}</span>
             <div class="db-stage-right">
-                <span class="db-stage-count">${s ? s.count : '—'}</span>
+                <span class="db-stage-count">${s ? s.count : '0'}</span>
                 ${s ? _badge(s.status) : _badge('PENDING')}
             </div>
         </div>`;
