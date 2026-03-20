@@ -15,10 +15,6 @@ import API from '../../core/api.js';
 import Pagination from '../../components/pagination.js';
 
 let _API_BASE = 'https://maxtraceapi.maxvoltenergy.com';
-try {
-    const cfg = await import('../../core/config.js');
-    if (cfg?.API_BASE) _API_BASE = cfg.API_BASE;
-} catch { /* fallback stays active */ }
 
 const PAGE_SIZE = 15;
 

@@ -1,8 +1,10 @@
 /**
  * modelManagement.js — Battery Model Management Page
  *
- * UX improvement: Bulk Link section moved into a slide-down drawer
- * triggered from the page header — no scrolling needed.
+ * Fix: 422 errors from FastAPI now show the actual validation message
+ * instead of a generic "Failed to create model" toast.
+ * Also added console.error logging so the full detail is always visible
+ * in DevTools → Console even if the toast truncates it.
  *
  * APIs:
  *   GET    /battery-models/summary      → load all models
@@ -19,13 +21,37 @@ import Modal from '../../components/modal.js';
 const CATEGORIES    = ['2-Wheeler', '3-Wheeler', 'ESS'];
 const CELL_TYPES    = ['NMC', 'LFP'];
 const WELDING_TYPES = [
-    { label: 'Spot Weld',  value: 'SPOT'  },
-    { label: 'Laser Weld', value: 'LASER' },
+    { label: 'Spot Weld',  value: 'Spot'  },   // backend enum: "Spot"  not "SPOT"
+    { label: 'Laser Weld', value: 'Laser' },   // backend enum: "Laser" not "LASER"
 ];
 
 let _allModels  = [];
 let _filtered   = [];
 let _searchTerm = '';
+
+/* ── Error helper ────────────────────────────────────────── */
+
+/**
+ * Extracts a human-readable message from any API error response.
+ * Handles FastAPI 422 validation errors (array of {loc, msg}) and
+ * simple string detail fields.
+ */
+function _apiError(res, fallback = 'Request failed.') {
+    const detail = res?.detail ?? res?.message;
+    if (!detail) return fallback;
+
+    // FastAPI 422: detail is an array of validation error objects
+    if (Array.isArray(detail)) {
+        return detail
+            .map(e => {
+                const field = e.loc ? e.loc.filter(l => l !== 'body').join('.') : '';
+                return field ? `${field}: ${e.msg}` : e.msg;
+            })
+            .join(' | ');
+    }
+
+    return String(detail);
+}
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
@@ -242,17 +268,33 @@ async function _submitAddModel() {
     const btn = document.querySelector('#active-modal-overlay .btn--primary');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="btn__spinner"></span> Saving…'; }
 
-    const res = await API.post('/battery-models/', {
-        model_id: modelId, category,
-        series_count: series, parallel_count: parallel,
-        cell_type: cellType, welding_type: welding,
-        bms_model: bms || null,
-    });
+    // ── Payload — log it so you can compare against your Pydantic schema ──────
+    const payload = {
+        model_id:       modelId,
+        category,
+        series_count:   series,
+        parallel_count: parallel,
+        cell_type:      cellType,
+        welding_type:   welding,
+        bms_model:      bms || null,
+    };
+    console.log('[ModelManagement] POST /battery-models/ payload:', payload);
+
+    const res = await API.post('/battery-models/', payload);
+    console.log('[ModelManagement] POST /battery-models/ response:', res);
 
     if (btn) { btn.disabled = false; btn.textContent = 'Save Model'; }
 
-    if (res.success) { Toast.success(`Model "${modelId}" created.`); Modal.close(); await _loadModels(); }
-    else Toast.error(typeof res.detail === 'string' ? res.detail : (res.message || 'Failed to create model.'));
+    if (res.success) {
+        Toast.success(`Model "${modelId}" created.`);
+        Modal.close();
+        await _loadModels();
+    } else {
+        // Show the real FastAPI validation error, not a generic message
+        const msg = _apiError(res, 'Failed to create model.');
+        console.error('[ModelManagement] Create failed:', msg, res);
+        Toast.error(msg);
+    }
 }
 
 /* ── Edit Modal ──────────────────────────────────────────── */
@@ -321,18 +363,30 @@ async function _submitEditModel(modelId) {
     const btn = document.querySelector('#active-modal-overlay .btn--primary');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="btn__spinner"></span> Saving…'; }
 
-    const res = await API.patch(`/battery-models/${encodeURIComponent(modelId)}/update`, {
+    const payload = {
         category:       document.getElementById('mm-edit-category').value,
-        series_count:   series, parallel_count: parallel,
+        series_count:   series,
+        parallel_count: parallel,
         cell_type:      document.getElementById('mm-edit-celltype').value,
         welding_type:   document.getElementById('mm-edit-welding').value,
         bms_model:      document.getElementById('mm-edit-bms').value.trim() || null,
-    });
+    };
+    console.log('[ModelManagement] PATCH payload:', payload);
+
+    const res = await API.patch(`/battery-models/${encodeURIComponent(modelId)}/update`, payload);
+    console.log('[ModelManagement] PATCH response:', res);
 
     if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
 
-    if (res.success) { Toast.success('Model updated successfully.'); Modal.close(); await _loadModels(); }
-    else Toast.error(typeof res.detail === 'string' ? res.detail : (res.message || 'Update failed.'));
+    if (res.success) {
+        Toast.success('Model updated successfully.');
+        Modal.close();
+        await _loadModels();
+    } else {
+        const msg = _apiError(res, 'Update failed.');
+        console.error('[ModelManagement] Update failed:', msg, res);
+        Toast.error(msg);
+    }
 }
 
 /* ── Delete Modal ────────────────────────────────────────── */
@@ -363,11 +417,17 @@ async function _submitDelete(modelId) {
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="btn__spinner"></span> Deleting…'; }
 
     const res = await API.delete(`/battery-models/${encodeURIComponent(modelId)}`);
+    console.log('[ModelManagement] DELETE response:', res);
 
-    if (res.success) { Toast.success(`Model "${modelId}" deleted.`); Modal.close(); await _loadModels(); }
-    else {
+    if (res.success) {
+        Toast.success(`Model "${modelId}" deleted.`);
+        Modal.close();
+        await _loadModels();
+    } else {
         if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
-        Toast.error(typeof res.detail === 'string' ? res.detail : (res.message || 'Delete failed.'));
+        const msg = _apiError(res, 'Delete failed.');
+        console.error('[ModelManagement] Delete failed:', msg, res);
+        Toast.error(msg);
     }
 }
 
@@ -386,7 +446,6 @@ function _initBulkLink() {
 
     let selectedFile = null, isUploading = false, isOpen = false;
 
-    // ── Toggle drawer open / close ──
     drawerBtn.addEventListener('click', () => {
         isOpen = !isOpen;
         if (isOpen) {
@@ -406,7 +465,6 @@ function _initBulkLink() {
         }
     });
 
-    // ── File selection ──
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
     fileInput.addEventListener('change', e => { if (e.target.files.length > 0) _setFile(e.target.files[0]); });
@@ -429,7 +487,6 @@ function _initBulkLink() {
         dropZone.classList.add('file-uploader--has-file');
         submitBtn.disabled    = false;
         resultEl.style.display = 'none';
-        // Recalculate max-height after content change
         if (isOpen) drawer.style.maxHeight = drawer.scrollHeight + 'px';
     }
 
@@ -442,7 +499,6 @@ function _initBulkLink() {
         if (isOpen) drawer.style.maxHeight = drawer.scrollHeight + 'px';
     });
 
-    // ── Upload ──
     submitBtn.addEventListener('click', async () => {
         if (!selectedFile || isUploading) return;
         isUploading = true;
@@ -452,6 +508,7 @@ function _initBulkLink() {
         const formData = new FormData();
         formData.append('file', selectedFile);
         const res = await API.upload('/battery-models/bulk-link', formData);
+        console.log('[ModelManagement] bulk-link response:', res);
 
         isUploading = false;
         submitBtn.disabled = false;
@@ -488,11 +545,12 @@ function _initBulkLink() {
                 </div>`;
 
             Toast.success(`${s.created ?? 0} batteries linked, ${s.skipped ?? 0} skipped.`);
-            // Recalculate height after result appears
             if (isOpen) setTimeout(() => { drawer.style.maxHeight = drawer.scrollHeight + 'px'; }, 50);
             if (!s.errors) setTimeout(() => { resetBtn.click(); resultEl.style.display = 'none'; }, 5000);
         } else {
-            Toast.error(typeof res.detail === 'string' ? res.detail : (res.message || 'Upload failed.'));
+            const msg = _apiError(res, 'Upload failed.');
+            console.error('[ModelManagement] Bulk link failed:', msg, res);
+            Toast.error(msg);
         }
     });
 }
@@ -504,14 +562,12 @@ const ModelManagement = {
         return `
             <div class="content__inner">
 
-                <!-- ── Page header with all 3 action buttons ── -->
                 <div class="page-header">
                     <div>
                         <h1 class="page-header__title">Model Management</h1>
                         <p class="page-header__subtitle">Define battery models, manage parameters, and link batteries into production</p>
                     </div>
                     <div style="display:flex;align-items:center;gap:var(--space-3);">
-                        <!-- Bulk Link toggle button — lives in header, always visible -->
                         <button type="button" id="mm-bulk-drawer-btn"
                             style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;
                                    border-radius:var(--radius-md);font-size:13px;font-weight:600;
@@ -534,18 +590,13 @@ const ModelManagement = {
                     </div>
                 </div>
 
-                <!-- ── Bulk Link slide-down drawer ── -->
-                <!-- max-height transition gives the smooth open/close animation -->
                 <div id="mm-bulk-drawer"
                     style="max-height:0;opacity:0;overflow:hidden;
                            transition:max-height 320ms ease, opacity 240ms ease;
                            margin-bottom:0;">
-
                     <div style="background:var(--color-bg-card);border:1px solid var(--color-border);
                                 border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
                                 padding:var(--space-5) var(--space-6);margin-bottom:var(--space-5);">
-
-                        <!-- Drawer header -->
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4);">
                             <div style="display:flex;align-items:center;gap:var(--space-3);">
                                 <div style="width:34px;height:34px;border-radius:var(--radius-md);background:var(--color-primary-surface);color:var(--color-primary);display:flex;align-items:center;justify-content:center;">
@@ -558,8 +609,6 @@ const ModelManagement = {
                             </div>
                             <span style="font-size:11px;font-weight:700;color:var(--color-primary);border:1px solid #C5D5E8;background:var(--color-primary-surface);padding:3px 12px;border-radius:20px;letter-spacing:.5px;">BULK</span>
                         </div>
-
-                        <!-- Info banner -->
                         <div style="padding:11px 14px;background:var(--color-primary-surface);border:1px solid #C5D5E8;border-radius:var(--radius-md);margin-bottom:var(--space-4);font-size:13px;color:var(--color-primary);">
                             <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px;margin-right:6px;">info</span>
                             Required columns:&nbsp;
@@ -568,8 +617,6 @@ const ModelManagement = {
                             <code style="background:#D6E8F7;padding:1px 7px;border-radius:4px;font-size:12px;">model_name</code>
                             — <strong>model_name</strong> must exactly match a Model ID in the table below. Existing IDs are skipped.
                         </div>
-
-                        <!-- Drop zone -->
                         <div id="mm-drop-zone" class="file-uploader" tabindex="0" role="button"
                             aria-label="Upload Excel file" style="min-height:120px;cursor:pointer;">
                             <div class="file-uploader__icon">📊</div>
@@ -577,15 +624,11 @@ const ModelManagement = {
                             <div class="file-uploader__hint">Supported: .xlsx, .xls</div>
                             <input type="file" id="mm-file-input" accept=".xlsx,.xls" style="display:none;">
                         </div>
-
-                        <!-- Selected file info -->
                         <div id="mm-file-info"
                             style="display:none;align-items:center;gap:var(--space-3);margin-top:var(--space-3);
                                    padding:10px 14px;background:var(--color-success-bg);
                                    border:1px solid var(--color-success-border);border-radius:var(--radius-md);">
                         </div>
-
-                        <!-- Actions -->
                         <div style="display:flex;justify-content:flex-end;gap:var(--space-3);
                                     margin-top:var(--space-4);padding-top:var(--space-4);
                                     border-top:1px solid var(--color-border-light);">
@@ -596,13 +639,10 @@ const ModelManagement = {
                                 Upload &amp; Link
                             </button>
                         </div>
-
-                        <!-- Result -->
                         <div id="mm-bulk-result" style="display:none;margin-top:var(--space-4);"></div>
                     </div>
                 </div>
 
-                <!-- ── Models table ── -->
                 <div class="card">
                     <div class="card__header">
                         <div style="display:flex;align-items:center;gap:var(--space-3);">
@@ -648,7 +688,10 @@ const ModelManagement = {
 
     async init() {
         await _loadModels();
-        document.getElementById('mm-search').addEventListener('input', e => { _searchTerm = e.target.value; _applyFilter(); });
+        document.getElementById('mm-search').addEventListener('input', e => {
+            _searchTerm = e.target.value;
+            _applyFilter();
+        });
         document.getElementById('mm-add-btn').addEventListener('click', _openAddModal);
         _initBulkLink();
         return () => { _allModels = []; _filtered = []; _searchTerm = ''; };
