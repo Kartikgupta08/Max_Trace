@@ -340,7 +340,7 @@ function _renderStages(stages) {
         return `<div class="db-stage-row">
             <span class="db-stage-name">${name}</span>
             <div class="db-stage-right">
-                <span class="db-stage-count">${s ? s.count : '0'}</span>
+                <span class="db-stage-count">${s ? s.count : '-'}</span>
                 ${s ? _badge(s.status) : _badge('PENDING')}
             </div>
         </div>`;
